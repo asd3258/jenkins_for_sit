@@ -9,7 +9,7 @@ import os
 
 # --- 設定區 ---
 TARGET_URL = "https://www.youtube.com/"
-SEARCH_KEYWORD = "i-dle"
+SEARCH_KEYWORD = "babymonster"
 SAVE_DIR = os.getcwd()
 
 # --- 初始化 Firefox (Ubuntu 24.04 設定) ---
