@@ -48,7 +48,7 @@ try:
     wait.until(EC.presence_of_element_located((By.ID, "video-title")))
 
     # 5. 拍照 (截圖)
-    screenshot_path = os.path.join(SAVE_DIR, "youtube_idle_result.png")
+    screenshot_path = os.path.join(SAVE_DIR, "youtube_babymonster_result.png")
     driver.save_screenshot(screenshot_path)
     print(f"截圖已儲存: {screenshot_path}")
 
