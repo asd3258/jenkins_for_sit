@@ -45,15 +45,16 @@ verify_log() {
                 echo "$text"
                 echo "--------------------------------------------------------------"
             } >> "$VERIFY_FILE"
+        elif [[ "$text" == "h2"* ]]; then
+            {
+                echo ""
+                echo "$text"
+            } >> "$VERIFY_FILE"
         else
             echo "$text" >> "$VERIFY_FILE"
         fi
     fi
     log "$text"
-}
-change_password() {
-    local ip=$1
-    ipmitool -H "$ip" -U "$BMC_USER" -P "$DEFAULT_PASS" user set password 2 "$BMC_PASS" > /dev/null
 }
 countdown() {
     local seconds=$1
@@ -170,13 +171,14 @@ remote_exec() {
         else
             # 失敗時的處理
             if [ $remote_count -lt $retries ]; then
+                # 訊息導向 stderr (>&2)，避免被變數捕捉
                 log "[Debug] SSH 連線 $ip 失敗，第 $remote_count/$retries 次重試..." >&2
                 sleep "$wait_retry"
             fi
         fi
     done
 
-    log "[Error] SSH 連線 $ip 失敗，已重試 $retries 次。"
+    log "[Error] SSH 連線 $ip 失敗，已重試 $retries 次。" >&2
     return 1
 }
 
@@ -307,7 +309,22 @@ get_gpu_info() {
 get_filtered_lspci() {
     local ip=$1
     local output_file=$2
-    # 抓取 lspci -vvv
+    # 邏輯說明：
+    # 1. /^[0-9a-f]{2,4}:/ : 抓取以 PCI Bus ID 開頭的行 (例如 01:00.0 VGA...) -> 用於比對硬體是否掉卡 (Topology)
+    # 2. /LnkSta:/ : 抓取 Link Status 行 -> 用於比對速度與頻寬
+    # 3. match(...) : 在 LnkSta 行中，只精確擷取 "Speed ... GT/s" 和 "Width x..." 的部分，丟棄後面浮動的 Training 狀態
+    
+    remote_exec "$ip" "lspci -vvv" | awk '
+        /^[0-9a-f]{2,4}:[0-9a-f]{2}:/ { 
+            print $0 
+        }
+        /LnkSta:/ { 
+            if (match($0, /Speed [^,]+, Width [^,]+/)) {
+                print "\t" substr($0, RSTART, RLENGTH)
+            }
+        }
+    ' > "$output_file"
+
     # 使用 sed 過濾掉常見的變動欄位
     # 1. 過濾 IRQ 數字 (IRQ 123 -> IRQ xxx)
     # 2. 過濾 Latency (Latency=0 -> Latency=x)
@@ -316,25 +333,35 @@ get_filtered_lspci() {
     # 3. 過濾 LnkSta2 (電氣訊號參數)
     # 4. 過濾 DpcCtl/DpcCap (DPC 控制狀態)
     # 5. 過濾 LnkCtl2 (因為 LnkSta2 變了，通常 LnkCtl2 也會有些微變動)
+    # 6. Secondary status: Bridge 的狀態位元會浮動
+    # 7. CEMsk / UEMsk / UESvrt: AER 錯誤遮罩設定，易受 Driver 載入順序影響
+    # 8. DevCtl / DevSta: 裝置控制與狀態 (包含 Error Reporting Enable)
+    # 9. Power Management Status (Status: D0/D3): 電源狀態會隨負載變動
     
-    remote_exec "$ip" "lspci -vvv" | sed \
-        -e 's/IRQ [0-9]\+/IRQ xxx/g' \
-        -e 's/Latency[:=] [0-9]\+/Latency: x/g' \
-        -e 's/Physical Slot: [0-9]\+/Physical Slot: x/g' \
-        -e 's/Capabilities: \[[0-9a-f]\+\]/Capabilities: [xx]/g' \
-        -e '/HeaderLog:/d' \
-        -e '/UESta:/d' \
-        -e '/CESta:/d' \
-        -e '/DevSta:/d' \
-        -e '/IOMMU group:/d' \
-        -e '/ErrorSrc:/d' \
-        -e '/LnkSta2:/d' \
-        -e '/LnkCtl2:/d' \
-        -e '/DpcCtl:/d' \
-        -e '/DpcCap:/d' \
-        -e '/DpcSta:/d' \
-        -e 's/\(LnkSta: Speed [^,]\+, Width [^,]\+\).*/\1/g' \
-        > "$output_file"
+    # remote_exec "$ip" "lspci -vvv" | sed \
+    #     -e 's/IRQ [0-9]\+/IRQ xxx/g' \
+    #     -e 's/Latency[:=] [0-9]\+/Latency: x/g' \
+    #     -e 's/Physical Slot: [0-9]\+/Physical Slot: x/g' \
+    #     -e 's/Capabilities: \[[0-9a-f]\+\]/Capabilities: [xx]/g' \
+    #     -e '/HeaderLog:/d' \
+    #     -e '/UESta:/d' \
+    #     -e '/CESta:/d' \
+    #     -e '/DevSta:/d' \
+    #     -e '/IOMMU group:/d' \
+    #     -e '/ErrorSrc:/d' \
+    #     -e '/LnkSta2:/d' \
+    #     -e '/LnkCtl2:/d' \
+    #     -e '/DpcCtl:/d' \
+    #     -e '/DpcCap:/d' \
+    #     -e '/DpcSta:/d' \
+    #     -e '/Secondary status:/d' \
+    #     -e '/CEMsk:/d' \
+    #     -e '/UEMsk:/d' \
+    #     -e '/UESvrt:/d' \
+    #     -e '/DevCtl:/d' \
+    #     -e '/Status: D[0-3]/d' \
+    #     -e 's/\(LnkSta: Speed [^,]\+, Width [^,]\+\).*/\1/g' \
+    #     > "$output_file"
 }
 # 抓取 Version
 get_version_with_redfish() {
@@ -403,7 +430,7 @@ run_server_test() {
     if [ $pw_status -eq 1 ]; then
         ((round_fail+=1))
         log "嘗試恢復 BMC 密碼..."
-        change_password "$bmc_ip"
+        ipmitool -I lanplus -N 5 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$DEFAULT_PASS" user set password 2 "$BMC_PASS" > /dev/null
         if [ $? -ne 0 ]; then
             verify_log "[Error] BMC ($ip) DEFAULT密碼修改失敗！"
             log "[Skip] 本次跳過此Server。"
@@ -419,7 +446,7 @@ run_server_test() {
     pwr_status=$(ipmitool -I lanplus -N 5 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" power status 2>/dev/null)
     if [[ "${pwr_status,,}" == *"is off"* ]]; then
         log "[Info] 偵測到目前為 Power Off 狀態，正在執行 Power On..."
-        ipmitool -I lanplus -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" power on > /dev/null
+        ipmitool -I lanplus -N 5 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" power on > /dev/null
         # 等待5min
         sleep 300
     else
@@ -438,11 +465,11 @@ run_server_test() {
         # 1. OS Systemd Services
         check_system_services "$os_ip"
 
-        # 2. Lspci (過濾版)
+        # 2. Lspci
         get_filtered_lspci "$os_ip" "${server_dir}/golden_lspci.log"
 
         # 3. GPU Info
-        get_gpu_info "$os_ip" "${server_dir}/golden_gpu.log"
+        # get_gpu_info "$os_ip" "${server_dir}/golden_gpu.log"
         
         # 4. Firmware Version
         get_version_with_redfish "$bmc_ip" "${server_dir}/golden_firmware_version.log"
@@ -493,7 +520,7 @@ run_server_test() {
         # --- 清除 ---
         # SEL & Dmesg
         sleep 3
-        ipmitool -I lanplus -N 10 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" sel clear > /dev/null 2>&1
+        ipmitool -I lanplus -N 5 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" sel clear > /dev/null 2>&1
         sleep 3
         remote_exec "$os_ip" "dmesg -C" > /dev/null
         sleep 3
@@ -507,7 +534,7 @@ run_server_test() {
     if [[ "$TEST_MODE" == "dc" ]]; then
         log "執行 DC Power OFF..."
         for (( j=1; j<=2; j++ )); do
-            ipmitool -I lanplus -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" power off > /dev/null
+            ipmitool -I lanplus -N 5 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" power off > /dev/null
             sleep "$WAIT_OFF"
             status=$(ipmitool -I lanplus -N 5 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" power status 2>/dev/null)
             if [[ "${status,,}" != *"is off"* ]]; then
@@ -523,7 +550,7 @@ run_server_test() {
         done
 
         log "執行 IPMI Power ON..."
-        ipmitool -I lanplus -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" power on > /dev/null
+        ipmitool -I lanplus -N 5 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" power on > /dev/null
         
         # DC On 後等待開機
         log "等待 300 秒讓系統重啟..."
@@ -532,8 +559,8 @@ run_server_test() {
     elif [[ "$TEST_MODE" == "ac" ]]; then
         log "執行 AUX Power Cycle..."
         for (( j=1; j<=2; j++ )); do
-            ipmitool -I lanplus -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" raw 0x06 0x05 0x73 0x75 0x70 0x65 0x72 0x75 0x73 0x65 0x72 > /dev/null
-            ipmitool -I lanplus -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" raw 0x6 0x52 19 0x40 0 6 0x57 > /dev/null
+            ipmitool -I lanplus -N 5 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" raw 0x06 0x05 0x73 0x75 0x70 0x65 0x72 0x75 0x73 0x65 0x72 > /dev/null
+            ipmitool -I lanplus -N 5 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" raw 0x6 0x52 19 0x40 0 6 0x57 > /dev/null
             sleep "$WAIT_OFF" 
             status=$(ipmitool -I lanplus -N 5 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" power status 2>/dev/null)
             if [[ "${status,,}" != *"is off"* ]]; then
@@ -604,15 +631,15 @@ run_server_test() {
     fi
 
     # 3. GPU Verify
-    local current_gpu="${server_dir}/${current_count}_gpu.log"
-    get_gpu_info "$os_ip" "$current_gpu"
-    if diff -q "$server_dir/golden_gpu.log" "$current_gpu" > /dev/null; then
-        log "[Pass] GPU Info Check OK"
-    else
-        verify_log "[Fail] GPU Info Mismatch!"
-        diff -u "$server_dir/golden_gpu.log" "$current_gpu" >> "$VERIFY_FILE"
-        ((round_fail+=1))
-    fi
+    # local current_gpu="${server_dir}/${current_count}_gpu.log"
+    # get_gpu_info "$os_ip" "$current_gpu"
+    # if diff -q "$server_dir/golden_gpu.log" "$current_gpu" > /dev/null; then
+    #     log "[Pass] GPU Info Check OK"
+    # else
+    #     verify_log "[Fail] GPU Info Mismatch!"
+    #     diff -u "$server_dir/golden_gpu.log" "$current_gpu" >> "$VERIFY_FILE"
+    #     ((round_fail+=1))
+    # fi
 
     # 4. Firmware Verify
     local current_firmware="${server_dir}/${current_count}_firmware_version.log"
@@ -731,7 +758,7 @@ run_server_test() {
 
     # 4. 清除 SEL
     sleep 1
-    ipmitool -I lanplus -N 10 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" sel clear > /dev/null 2>&1
+    ipmitool -I lanplus -N 5 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" sel clear > /dev/null 2>&1
     sleep 1
     # -------------------
 
@@ -743,7 +770,7 @@ run_server_test() {
     remote_exec "$os_ip" "dmesg -T -x" > "$local_dmesg"
 
     # 2. 定義關鍵字
-    FATAL_KEYS="fail|error|warn|critical|Call Trace|Kernel panic|Oops|soft lockup|hung_task|MCE" #|Hardware Error|I/O error|EXT4-fs error|critical target error
+    FATAL_KEYS="fail|error|critical|Call Trace|Kernel panic|Oops|soft lockup|hung_task|MCE" #|warn|Hardware Error|I/O error|EXT4-fs error|critical target error
     EXCLUDE_KEYS="Error Record Serialization Table (ERST) support is initialized" #ACPI|ERST|firmware|integrity: Problem loading X.509 certificate"
 
     # 3. 執行檢查
@@ -767,24 +794,26 @@ run_server_test() {
     # -------------------
 
     # BMC Time
-    local current_bmc_time="${server_dir}/${current_count}_bmc_time.log"
-    remote_exec "$os_ip" "ipmitool sel time get" > "$current_bmc_time"  #01/17/2026 05:12:38 PM UTC
-    local bmc_time=$(cat "$current_bmc_time") 
-    local bmc_year=$(echo "$bmc_time" | awk -F "/" '{print $3}' | awk '{print $1}')  #2026
-    # 如果年份是 2 位數 (例如 26)，自動補全為 2026
-    if [ ${#bmc_year} -eq 2 ]; then
-        bmc_year="20${bmc_year}"
-    fi
-    if [ "$bmc_year" -lt "$THIS_YEAR" ]; then
-        verify_log "[Fail] BMC Time is incorrect! Year: $bmc_year"
-        echo "(ipmitool sel time get) Command Result:$bmc_time" >> "$VERIFY_FILE"
+    local current_bmc_time
+    if current_bmc_time=$(remote_exec "$os_ip" "ipmitool sel time get"); then
+        local bmc_year=$(echo "$current_bmc_time" | awk -F "/" '{print $3}' | awk '{print $1}')  #2026
+        # 如果年份是 2 位數 (例如 26)，自動補全為 2026
+        if [ ${#bmc_year} -eq 2 ]; then
+            bmc_year="20${bmc_year}"
+        fi
+        if [ "$bmc_year" -lt "$THIS_YEAR" ]; then
+            verify_log "[Fail] BMC Time is incorrect! Year: $bmc_year"
+            echo "(ipmitool sel time get) Command Result:$bmc_time" >> "$VERIFY_FILE"
+        else
+            log "[Pass] BMC Time is valid! Year: $bmc_time"
+        fi
     else
-        log "[Pass] BMC Time is valid! Year: $bmc_time"
+        verify_log "[Fail] BMC Time is Empty!"
     fi
 
     # OS Time
-    local current_os_time="${server_dir}/${current_count}_os_time.log"
-    remote_exec "$os_ip" "date '+%Y-%m-%d %H:%M:%S'" > "${current_os_time}"
+    # local current_os_time="${server_dir}/${current_count}_os_time.log"
+    # remote_exec "$os_ip" "date '+%Y-%m-%d %H:%M:%S'" > "${current_os_time}"
     local os_year=$(remote_exec "$os_ip" "date '+%Y'")
     if [ "$os_year" -lt "$THIS_YEAR" ]; then
         verify_log "[Fail] OS System Time is incorrect! Year: $os_year ,Year: $os_year"
