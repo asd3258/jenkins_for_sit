@@ -1,4 +1,5 @@
 #!/bin/bash
+set +x
 
 # --- 設定區 ---
 BMC_USER="admin"
@@ -18,10 +19,8 @@ SERVER_LIST="servers.csv"
 EXECUTE_SERVER_LIST="execute_servers.csv"
 LOG_ROOT="DC_Check_Logs"
 time_stamp=$(date '+%Y%m%d_%H%M')
-LOG_FILE="/var/tmp/dc_cycle_${time_stamp}.log"
 
 # --- 函式區 ---
-
 # 用於主程序的 Log，會顯示在螢幕
 main_log() {
     echo "[Main] $(date '+%Y-%m-%d %H:%M:%S') $1"
@@ -56,70 +55,39 @@ verify_log() {
     fi
     log "$text"
 }
-countdown() {
-    local seconds=$1
-    local msg=$2
-    
-    echo "$msg"
-    for (( s="$seconds"; s>0; s-- )); do
-        echo -ne "倒數 $s 秒...  \r"
-        sleep 1
-    done
-    printf "%50s\r" " "  # 清除該行
-}
-#Polling（輪詢
-wait_with_spinner() {
+
+wait_for_jobs() {
     local pids_arr=($@)
-    local spinner_start_time
-    spinner_start_time=$(date +%s)
-    local spinner_current_time
-    local spinner_elapsed
+    echo "[Main] 測試進行中，等待以下 Background PID 完成: ${pids_arr[*]}"
     
-    # 判斷是否為終端機環境 (Jenkins 回傳 false)
-    if [ ! -t 1 ]; then
-        echo "[Main] 測試進行中，等待 Background PID 完成..."
-        wait "${pids_arr[@]}"
-        return
-    fi
-
-    tput civis 2>/dev/null # 隱藏游標
-
-    while true; do
-        local any_running=false
-        # 檢查每個 PID 是否存在
-        for pid in "${pids_arr[@]}"; do
-            # kill -0 不會殺掉進程，只是檢查是否存在
-            if kill -0 "$pid" 2>/dev/null; then
-                any_running=true
-                break
-            fi
-        done
-
-        if [ "$any_running" = "false" ]; then
-            break
+    # 直接使用 wait 等待所有子進程
+    # Jenkins 會自動處理輸出流，不需要 spinner
+    for pid in "${pids_arr[@]}"; do
+        if wait "$pid"; then
+            echo "[Main] PID $pid 任務完成。"
+        else
+            echo "[Main] PID $pid 任務失敗 (Exit Code: $?)。"
         fi
-        
-        spinner_current_time=$(date +%s)
-        spinner_elapsed=$((spinner_current_time - spinner_start_time))
-        
-        # 修改這裡：
-        printf "\r[Main] 測試進行中... (已耗時: %4ds)   " "$spinner_elapsed"
-        
-        sleep 1
     done
-    
-    tput cnorm 2>/dev/null # 恢復游標
-    echo "" # 換行
 }
 # 檢查相依套件
 check_dependencies() {
-    for cmd in ipmitool sshpass curl jq netcat; do
+    local missing=0
+    for cmd in ipmitool sshpass curl jq nc; do
         if ! command -v $cmd &> /dev/null; then
-            echo "[Info] 檢測未安裝 $cmd，開始自動安裝"
-            sudo apt-get update -y -qq
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q $cmd > /dev/null
+            echo "[Error] 尚未安裝 $cmd"
+            missing=1
         fi
     done
+    
+    if [ $missing -eq 1 ]; then
+        echo "---------------------------------------------------"
+        echo "[Fatal] 缺少必要套件。請進入 Jenkins Docker 容器執行安裝："
+        echo "docker exec -u 0 -it <container_name> bash"
+        echo "apt-get update && apt-get install -y ipmitool sshpass curl jq netcat-openbsd"
+        echo "---------------------------------------------------"
+        exit 1
+    fi
 }
 
 # 整理SEVER LIST
@@ -968,7 +936,7 @@ for (( i=1; i<=REPEAT_COUNT; i++)); do
     main_log "已觸發所有 Server，等待測試完成..."
     
     # wait $PID_LIST
-    wait_with_spinner $PID_LIST
+    wait_for_jobs $PID_LIST
     
     # 3. 檢查結果 (讀取 status 檔案)
     while IFS=, read -r NAME BMC_IP OS_IP || [ -n "$NAME" ]; do
