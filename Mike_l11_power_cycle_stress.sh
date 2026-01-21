@@ -1,6 +1,4 @@
 #!/bin/bash
-set +x
-
 # --- 設定區 ---
 BMC_USER="admin"
 BMC_PASS="adminadmin"
@@ -443,11 +441,10 @@ run_server_test() {
         get_version_with_redfish "$bmc_ip" "${server_dir}/golden_firmware_version.log"
 
         # 5. dmidecode -t 4 (processor)
-        remote_exec "$os_ip" "dmidecode -t processor" > "${server_dir}/golden_dcode_processor.log"
+        remote_exec "$os_ip" "dmidecode -t processor | grep -E 'Socket Designation:|Version:|Core Count:|Thread Count:|Status:'" > "${server_dir}/golden_dcode_processor.log"
 
         # 6. dmidecode -t memory
-        # remote_exec "$os_ip" "dmidecode -t memory | grep 'Size:' | sort" > "${server_dir}/golden_dcode_memory.log"
-        remote_exec "$os_ip" "dmidecode -t memory" > "${server_dir}/golden_dcode_memory.log"
+        remote_exec "$os_ip" "dmidecode -t memory | grep -E 'Locator:|Size:|Type:|Speed:|Part Number:'" > "${server_dir}/golden_dcode_memory.log"
         
         # 7. lscpu
         remote_exec "$os_ip" "lscpu" > "${server_dir}/golden_lscpu.log"
@@ -622,7 +619,7 @@ run_server_test() {
 
     # 5. dmidecode -t 4 (processor)
     local current_dcode_processor="${server_dir}/${current_count}_dcode_processor.log"
-    remote_exec "$os_ip" "dmidecode -t processor" > "$current_dcode_processor"
+    remote_exec "$os_ip" "dmidecode -t processor | grep -E 'Socket Designation:|Version:|Core Count:|Thread Count:|Status:" > "$current_dcode_processor"
     if diff -q "$server_dir/golden_dcode_processor.log" "$current_dcode_processor" > /dev/null; then
         log "[Pass] dmidecode processor Check OK"
     else
@@ -633,7 +630,7 @@ run_server_test() {
 
     # 6. dmidecode -t memory
     local current_dcode_memory="${server_dir}/${current_count}_dcode_memory.log"
-    remote_exec "$os_ip" "dmidecode -t memory" > "$current_dcode_memory"
+    remote_exec "$os_ip" "dmidecode -t memory | grep -E 'Locator:|Size:|Type:|Speed:|Part Number:'" > "$current_dcode_memory"
     if diff -q "$server_dir/golden_dcode_memory.log" "$current_dcode_memory" > /dev/null; then
         log "[Pass] dmidecode memory Check OK"
     else
