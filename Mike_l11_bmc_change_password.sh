@@ -40,7 +40,7 @@ while [[ "$#" -gt 0 ]]; do
 
         # --- 幫助與錯誤處理 ---
         --help|-h)
-            echo "Usage: $0 --bmc_user=USER  --bmc_default=DefPASS --bmc_pass=PASS"
+            echo "Usage: $0 --bmc_user=USER  --bmc_def=DefPASS --bmc_pass=PASS"
             exit 0
             ;;
             
