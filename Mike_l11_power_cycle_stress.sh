@@ -457,7 +457,7 @@ run_server_test() {
     # --- Power Action Execution ---
     local status
     local j
-    if [[ "$TEST_MODE" == "dc" ]]; then
+    if [[ "$TEST_MODE" == "DC" ]]; then
         log "執行 DC Power OFF..."
         for (( j=1; j<=2; j++ )); do
             ipmitool -I lanplus -N 5 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" power off > /dev/null
@@ -482,7 +482,7 @@ run_server_test() {
         log "等待 300 秒讓系統重啟..."
         sleep 300
 
-    elif [[ "$TEST_MODE" == "ac" ]]; then
+    elif [[ "$TEST_MODE" == "AC" ]]; then
         log "執行 AUX Power Cycle..."
         for (( j=1; j<=2; j++ )); do
             ipmitool -I lanplus -N 5 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" raw 0x06 0x05 0x73 0x75 0x70 0x65 0x72 0x75 0x73 0x65 0x72 > /dev/null
@@ -503,7 +503,7 @@ run_server_test() {
         # AC斷電重啟
         log "等待 480 秒讓系統重啟..."
         sleep 480
-    elif [[ "$TEST_MODE" == "warm" ]]; then
+    elif [[ "$TEST_MODE" == "WARM" ]]; then
         log "執行 OS Warm Boot (SSH Reboot)..."
         # 使用 nohup 避免 SSH 斷線造成 script 報錯
         local cmd_ret=1
@@ -528,7 +528,7 @@ run_server_test() {
         log "等待 180 秒讓系統重啟..."
         sleep 180
     else
-        main_log "參數${TEST_MODE}錯誤，非dc ac warm"
+        main_log "參數${TEST_MODE}錯誤，非DC AC WARM"
         exit 1
     fi
 
@@ -815,39 +815,60 @@ fi
 # $# 代表參數個數，只要還有參數就繼續跑
 while [[ "$#" -gt 0 ]]; do
     case $1 in
+        # --- 原有參數解析 ---
         # 解析 --item=xxx
         --item=*)
-            # "${1#*=}" 意思是刪除 "=" 左邊(包含=)的字串，只保留右邊的值
-            TEST_MODE="${1#*=}"
-            # 轉小寫 (避免輸入 DC, Dc, dc 造成誤判)
-            TEST_MODE="${TEST_MODE,,}"
+            TEST_MODE="${1#*=}" # 刪除 "=" 左邊字串，保留右邊的值
+            TEST_MODE="${TEST_MODE^^}" # 轉大寫
             LOG_ROOT="${TEST_MODE}_Check_Logs"
-            shift # 移除目前處理完的參數 ($1)，原本的 $2 變成 $1
             ;;
         
         # 解析 --loop=xxx
         --loop=*)
             REPEAT_COUNT="${1#*=}"
-            shift
+            ;;
+
+        # --- 新增參數解析 (SIT/Jenkins 傳入) ---
+        # 解析 --bmc_user=xxx
+        --bmc_user=*)
+            BMC_USER="${1#*=}"
             ;;
             
-        # 顯示幫助
+        # 解析 --bmc_def=xxx
+        --bmc_def=*)
+            DEFAULT_PASS="${1#*=}"
+            ;;
+            
+        # 解析 --bmc_pass=xxx
+        --bmc_pass=*)
+            BMC_PASS="${1#*=}"
+            ;;
+
+        # 解析 --os_user=xxx
+        --os_user=*)
+            OS_USER="${1#*=}"
+            ;;
+
+        # 解析 --os_pass=xxx
+        --os_pass=*)
+            OS_PASS="${1#*=}"
+            ;;
+
+        # --- 幫助與錯誤處理 ---
         --help|-h)
-            echo "Usage: $0 --item={dc|ac|warm} [--loop=N]"
-            echo "  --item=dc   : Run DC Power Cycle (Power Off -> Wait -> Power On)"
-            echo "  --item=ac   : Run AC Power Cycle (Chassis Power Cycle)"
-            echo "  --item=warm : Run Warm Boot (SSH Reboot)"
-            echo "  --loop=N    : Repeat count (Default: 2)"
+            echo "Usage: $0 --item={DC|AC|WARM} --loop=N --bmc_user=USER  --bmc_default=DefPASS --bmc_pass=PASS --os_user=USER --os_pass=PASS"
             exit 0
             ;;
             
-        # 未知參數處理
         *)
             echo "[Error] Unknown parameter: $1"
             echo "Try '$0 --help' for more information."
             exit 1
             ;;
     esac
+    
+    # 移除目前參數 ($1)，繼續處理下一個
+    shift 
 done
 
 # --- 檢查必要參數 ---
@@ -858,7 +879,7 @@ if [[ -z "$TEST_MODE" ]]; then
 fi
 
 # 再次確認輸入的值是否合法
-if [[ ! "$TEST_MODE" =~ ^(dc|ac|warm)$ ]]; then
+if [[ ! "$TEST_MODE" =~ ^(DC|AC|WARM)$ ]]; then
     echo "[Error] Invalid mode: $TEST_MODE. Supported modes: dc, ac, warm"
     exit 1
 fi
