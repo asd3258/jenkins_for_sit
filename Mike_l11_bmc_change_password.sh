@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # --- 設定區 ---
-BMC_USER="admin"
-BMC_PASS="adminadmin"     # 要設定的新密碼
-DEFAULT_PASS="admin"      # 預設/舊密碼
-MAX_CYCLES=10             # 最大重試圈數
+BMC_USER=""
+BMC_PASS=""        # 要設定的新密碼
+DEFAULT_PASS=""    # 預設/舊密碼
+MAX_CYCLES=10      # 最大重試圈數
 SERVER_LIST="servers.csv" # 來源清單
 LOG_FILE="bmc_pwd_change_$(date '+%Y%m%d_%H%M').log"
 EXECUTE_SERVER_LIST="execute_servers.csv"
