@@ -17,6 +17,17 @@ if [ ! -f "$SERVER_LIST" ]; then
     exit 1
 fi
 
+# 接收 Jenkins 傳入的參數, 使用 while 迴圈解析外部參數 (-U, -DP, -P)
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -U) BMC_USER="$2"; shift ;;       # 接收使用者帳號
+        -DP) DEFAULT_PASS="$2"; shift ;;  # 接收舊密碼
+        -P) BMC_PASS="$2"; shift ;;       # 接收新密碼
+        *) echo "未知參數: $1"; exit 1 ;;
+    esac
+    shift
+done
+
 # --- 函式區 ---
 
 # 1. 統一 Log 輸出格式
