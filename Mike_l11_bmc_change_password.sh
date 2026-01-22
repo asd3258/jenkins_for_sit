@@ -18,14 +18,41 @@ if [ ! -f "$SERVER_LIST" ]; then
 fi
 
 # 接收 Jenkins 傳入的參數, 使用 while 迴圈解析外部參數 (-U, -DP, -P)
+
+# --- 參數解析迴圈 ---
+# $# 代表參數個數，只要還有參數就繼續跑
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        -U) BMC_USER="$2"; shift ;;       # 接收使用者帳號
-        -DP) DEFAULT_PASS="$2"; shift ;;  # 接收舊密碼
-        -P) BMC_PASS="$2"; shift ;;       # 接收新密碼
-        *) echo "未知參數: $1"; exit 1 ;;
+        # 解析 --bmc_user=xxx
+        --bmc_user=*)
+            BMC_USER="${1#*=}"
+            ;;
+            
+        # 解析 --bmc_def=xxx
+        --bmc_def=*)
+            DEFAULT_PASS="${1#*=}"
+            ;;
+            
+        # 解析 --bmc_pass=xxx
+        --bmc_pass=*)
+            BMC_PASS="${1#*=}"
+            ;;
+
+        # --- 幫助與錯誤處理 ---
+        --help|-h)
+            echo "Usage: $0 --bmc_user=USER  --bmc_default=DefPASS --bmc_pass=PASS"
+            exit 0
+            ;;
+            
+        *)
+            echo "[Error] Unknown parameter: $1"
+            echo "Try '$0 --help' for more information."
+            exit 1
+            ;;
     esac
-    shift
+    
+    # 移除目前參數 ($1)，繼續處理下一個
+    shift 
 done
 
 # --- 函式區 ---
