@@ -1,10 +1,10 @@
 #!/bin/bash
 # --- 設定區 ---
-BMC_USER="admin"
-BMC_PASS="adminadmin"
-DEFAULT_PASS="admin"
-OS_USER="root"
-OS_PASS="abcdef"
+BMC_USER=""
+BMC_PASS=""
+DEFAULT_PASS=""
+OS_USER=""
+OS_PASS=""
 
 # --- 參數預設值 ---
 TEST_MODE=""    # 預設為空dc ac warm
@@ -212,7 +212,7 @@ wait_for_server_online() {
                             return 0
                         else
                             last_state="[Info] SSH is up, but System is still booting (Status: $boot_status)..."
-                            sleep $wait_os_ready
+                            # sleep $wait_os_ready
                         fi
                     fi
                 else
@@ -279,7 +279,6 @@ get_filtered_lspci() {
     # 1. /^[0-9a-f]{2,4}:/ : 抓取以 PCI Bus ID 開頭的行 (例如 01:00.0 VGA...) -> 用於比對硬體是否掉卡 (Topology)
     # 2. /LnkSta:/ : 抓取 Link Status 行 -> 用於比對速度與頻寬
     # 3. match(...) : 在 LnkSta 行中，只精確擷取 "Speed ... GT/s" 和 "Width x..." 的部分，丟棄後面浮動的 Training 狀態
-    
     remote_exec "$ip" "lspci -vvv" | awk '
         /^[0-9a-f]{2,4}:[0-9a-f]{2}:/ { 
             print $0 
@@ -290,44 +289,6 @@ get_filtered_lspci() {
             }
         }
     ' > "$output_file"
-
-    # 使用 sed 過濾掉常見的變動欄位
-    # 1. 過濾 IRQ 數字 (IRQ 123 -> IRQ xxx)
-    # 2. 過濾 Latency (Latency=0 -> Latency=x)
-    # 3. 過濾 HeaderLog, LnkSta (Link Status 會浮動)
-    # 2. 過濾 ErrorSrc (錯誤源計數)
-    # 3. 過濾 LnkSta2 (電氣訊號參數)
-    # 4. 過濾 DpcCtl/DpcCap (DPC 控制狀態)
-    # 5. 過濾 LnkCtl2 (因為 LnkSta2 變了，通常 LnkCtl2 也會有些微變動)
-    # 6. Secondary status: Bridge 的狀態位元會浮動
-    # 7. CEMsk / UEMsk / UESvrt: AER 錯誤遮罩設定，易受 Driver 載入順序影響
-    # 8. DevCtl / DevSta: 裝置控制與狀態 (包含 Error Reporting Enable)
-    # 9. Power Management Status (Status: D0/D3): 電源狀態會隨負載變動
-    
-    # remote_exec "$ip" "lspci -vvv" | sed \
-    #     -e 's/IRQ [0-9]\+/IRQ xxx/g' \
-    #     -e 's/Latency[:=] [0-9]\+/Latency: x/g' \
-    #     -e 's/Physical Slot: [0-9]\+/Physical Slot: x/g' \
-    #     -e 's/Capabilities: \[[0-9a-f]\+\]/Capabilities: [xx]/g' \
-    #     -e '/HeaderLog:/d' \
-    #     -e '/UESta:/d' \
-    #     -e '/CESta:/d' \
-    #     -e '/DevSta:/d' \
-    #     -e '/IOMMU group:/d' \
-    #     -e '/ErrorSrc:/d' \
-    #     -e '/LnkSta2:/d' \
-    #     -e '/LnkCtl2:/d' \
-    #     -e '/DpcCtl:/d' \
-    #     -e '/DpcCap:/d' \
-    #     -e '/DpcSta:/d' \
-    #     -e '/Secondary status:/d' \
-    #     -e '/CEMsk:/d' \
-    #     -e '/UEMsk:/d' \
-    #     -e '/UESvrt:/d' \
-    #     -e '/DevCtl:/d' \
-    #     -e '/Status: D[0-3]/d' \
-    #     -e 's/\(LnkSta: Speed [^,]\+, Width [^,]\+\).*/\1/g' \
-    #     > "$output_file"
 }
 # 抓取 Version
 get_version_with_redfish() {
