@@ -540,7 +540,7 @@ run_server_test() {
     local server_dir="${LOG_ROOT}_${TIME_STAMP}/${bmc_ip}"
     mkdir -p "$server_dir"
     local shm_dir="/dev/shm/${LOG_ROOT}_${bmc_ip}"
-    rm -r "$shm_dir"
+    rm -rf "$shm_dir"
     mkdir -p "$shm_dir"
 
     # [Remote] 遠端受測機 - 永久儲存區 (用於存放 Golden 和 Fail Logs)
