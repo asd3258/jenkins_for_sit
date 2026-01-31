@@ -159,8 +159,8 @@ remote_check_dependencies() {
 
         if [ -n "$missing_pkgs" ]; then
             echo "[Remote] 正在安裝缺失套件:$missing_pkgs"
-            sudo apt-get update -y -qq
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q $missing_pkgs
+            apt-get update -y -qq
+            DEBIAN_FRONTEND=noninteractive apt-get install -y -q $missing_pkgs
         fi
     '
     if remote_exec "$ip" "$remote_cmd"; then
