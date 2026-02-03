@@ -56,16 +56,7 @@ log() {
         echo "$msg" >> "$LOG_FILE"
     fi
 }
-# 檢查相依套件
-check_dependencies() {
-    for cmd in ipmitool sshpass curl jq; do
-        if ! command -v $cmd &> /dev/null; then
-            echo "[Info] 檢測未安裝 $cmd，開始自動安裝"
-            sudo apt-get update -y -qq
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q $cmd > /dev/null
-        fi
-    done
-}
+
 # 遠端環境相依套件
 remote_check_dependencies() {
     local ip=$1
@@ -313,9 +304,6 @@ if [ ! -f "$SERVER_LIST" ]; then
 fi
 # 強制移除 Windows 換行符號 (\r)，避免讀取失敗
 sed -i 's/\r//g' "$SERVER_LIST"
-
-# 檢查相依套件
-check_dependencies
 
 # 整理SEVER LIST
 parse_server_list
