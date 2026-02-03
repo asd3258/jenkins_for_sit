@@ -241,7 +241,9 @@ run_server_test() {
     local path="${server_dir}/nic_card.txt"
     remote_exec "$os_ip" "mlxfwmanager --query" > "$path"
     if [ -f "$path" ]; then
-        imex_ver=$(grep -iE "Device Type|FW" "$path" | awk '/Device Type:/ {dev=$3} /FW/ {print dev "-" ++i " : " $2}')
+        #imex_ver=$(grep -iE "Device Type|FW" "$path" | awk '/Device Type:/ {dev=$3} /FW/ {print dev "-" ++i " : " $2}')
+        #imex_ver=$(awk '/Device Type:/ {dev=$3} /FW/ {print dev " " $2}' "$path" | sort -k1,1 | awk '{print $1 "-" ++i " : " $2}')
+        imex_ver=$(awk '/Device Type:/ {dev=$3} /FW/ {print dev " " $2}' "$path" | sort -k1,1 | awk '{count[$1]++; print $1 "-" count[$1] " : " $2}')
         echo "$imex_ver" >> "$CHECK_RESULT"
     fi
     
