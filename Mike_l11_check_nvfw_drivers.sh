@@ -392,10 +392,17 @@ cat <<EOF > "$html_report"
     h2 { color: #333; }
     table { border-collapse: collapse; width: 100%; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
     th, td { border: 1px solid #dddddd; text-align: left; padding: 12px; }
-    th { background-color: #009879; color: white; }
     tr:nth-child(even) { background-color: #f3f3f3; }
     tr:hover { background-color: #f1f1f1; }
     .error { color: red; font-weight: bold; }
+    /* 1. 外層容器：設定高度與捲動 */
+    .table-container {max-height: 85vh; overflow: auto; border: 1px solid #ccc;}
+    /* 2. 標題固定 (Top) */
+    th { position: sticky; top: 0; background-color: #009879; color: white; z-index: 2; }
+    /* 3. 第一欄固定 (Left) */
+    td:first-child, th:first-child { position: sticky; left: 0; z-index: 1; background-color: #f1f1f1}
+    /* 4. 左上角交集格 (最高優先權) */
+    th:first-child { z-index: 3; background-color: #009879;}
 </style>
 </head>
 <body>
