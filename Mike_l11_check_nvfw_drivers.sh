@@ -310,8 +310,8 @@ parse_server_list
 
 echo ""
 
-# 設定Watchdog超時時間20min
-CYCLE_TIMEOUT=1200
+# 設定Watchdog超時時間(秒)
+CYCLE_TIMEOUT=100
 
 # 1. 觸發所有任務
 PID_LIST=""
