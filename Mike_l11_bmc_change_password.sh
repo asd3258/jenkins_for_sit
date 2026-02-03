@@ -63,27 +63,6 @@ log_msg() {
     echo "$msg" | tee -a "$LOG_FILE"
 }
 
-# 2. 檢查相依套件
-check_dependencies() {
-    for cmd in ipmitool sshpass curl jq netcat-openbsd; do
-        if ! command -v $cmd &> /dev/null; then
-            # 判斷是否為終端機環境 (Jenkins 回傳 false)
-            if [ ! -t 1 ]; then
-                log_msg "---------------------------------------------------"
-                log_msg "[Fatal] 缺少必要套件。請進入 Jenkins Docker 容器執行安裝："
-                log_msg "docker exec -u 0 -it <container_name> bash"
-                log_msg "apt-get update && apt-get install -y ipmitool sshpass curl jq netcat-openbsd"
-                log_msg "---------------------------------------------------"
-                exit 1
-            else
-                log_msg "[Info] 檢測未安裝 $cmd，開始自動安裝"
-                sudo apt-get update -y -qq
-                sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q $cmd > /dev/null
-            fi
-        fi
-    done
-}
-
 # 3. 解析 Server List
 parse_server_list() {
     # 定義 IP 的正則表達式
@@ -158,8 +137,6 @@ change_password() {
 
 # --- 主流程 ---
 main_cycle() {
-    # 檢查相依套件
-    check_dependencies
     # 整理SEVER LIST
     parse_server_list
 
