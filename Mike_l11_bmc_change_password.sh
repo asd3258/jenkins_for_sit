@@ -131,7 +131,8 @@ main_cycle() {
     check_dependencies
     # 整理SEVER LIST
     parse_server_list
-
+    echo ip:"$ip" USER:"$BMC_USER" DEF:"$DEFAULT_PASS" PASS:"$BMC_PASS"
+    
     # 讀取處理過後的 IP 清單到陣列
     local current_ips=($(cat "$EXECUTE_SERVER_LIST"))
     
