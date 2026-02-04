@@ -176,26 +176,26 @@ run_server_test() {
     log "----------------------------------------"
 
     # 1. 檢查 L3 (Ping)
-    if ! ping -c 1 -W 1 "$ip" &> /dev/null; then
-        echo "[Error] BMC $name unreachable (L3)"
+    if ! ping -c 1 -W 1 "$bmc_ip" &> /dev/null; then
+        echo "[Error] BMC $bmc_ip unreachable (L3)"
         return 1
     fi
 
     # 2. 檢查 L7 (Redfish API)
-    if ! curl -s -k -f --connect-timeout 2 "https://$ip/redfish/v1/" &> /dev/null; then
-        echo "[Error] BMC $name Redfish unreachable (L7)"
+    if ! curl -s -k -f --connect-timeout 2 "https://$bmc_ip/redfish/v1/" &> /dev/null; then
+        echo "[Error] BMC $bmc_ip Redfish unreachable (L7)"
         return 1
     fi
 
     # 3. 檢查電源狀態 (IPMI)
     local pwr_status
     if ! pwr_status=$(ipmitool -I lanplus -N 5 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" power status 2>&1); then
-        echo "[Error] BMC $name 連線失敗: $pwr_status"
+        echo "[Error] BMC $bmc_ip 連線失敗: $pwr_status"
         return 1
     fi
     # 檢查是否關機
     if [[ "${pwr_status,,}" == *"is off"* ]]; then
-        echo "[Error] BMC $name 目前為 Power Off 狀態"
+        echo "[Error] BMC $bmc_ip 目前為 Power Off 狀態"
         return 1
     fi
 
@@ -203,9 +203,9 @@ run_server_test() {
     local boot_status
     boot_status=$(sshpass -p "$OS_PASS" ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$OS_USER@$os_ip" "systemctl is-system-running" 2>/dev/null)
     if [[ "$boot_status" =~ ^(running|degraded)$ ]]; then
-        log "[Info] BMC $name ,OS Systemd Ready (Status: $boot_status)"
+        log "[Info] BMC $bmc_ip ,OS Systemd Ready (Status: $boot_status)"
     else
-        echo "[Error] BMC $name ,System is still booting (Status: ${boot_status:-Unknown})..."
+        echo "[Error] BMC $bmc_ip ,System is still booting (Status: ${boot_status:-Unknown})..."
         return 1
     fi
 
