@@ -175,23 +175,37 @@ run_server_test() {
 
     log "----------------------------------------"
 
-    # c. 檢查當前電源狀態
+    # 1. 檢查 L3 (Ping)
+    if ! ping -c 1 -W 1 "$ip" &> /dev/null; then
+        echo "[Error] BMC $name unreachable (L3)"
+        return 1
+    fi
+
+    # 2. 檢查 L7 (Redfish API)
+    if ! curl -s -k -f --connect-timeout 2 "https://$ip/redfish/v1/" &> /dev/null; then
+        echo "[Error] BMC $name Redfish unreachable (L7)"
+        return 1
+    fi
+
+    # 3. 檢查電源狀態 (IPMI)
     local pwr_status
-    pwr_status=$(ipmitool -I lanplus -N 5 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" power status 2>&1)
-    if [ $? -ne 0 ]; then
-        echo "[Error] BMC $name 無法連線或指令執行失敗: $pwr_status"
+    if ! pwr_status=$(ipmitool -I lanplus -N 5 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" power status 2>&1); then
+        echo "[Error] BMC $name 連線失敗: $pwr_status"
         return 1
     fi
+    # 檢查是否關機
     if [[ "${pwr_status,,}" == *"is off"* ]]; then
-        echo "[Info] BMC $name 偵測到目前為 Power Off 狀態"
+        echo "[Error] BMC $name 目前為 Power Off 狀態"
         return 1
     fi
+
+    # 4. 檢查OS狀態
     local boot_status
-    boot_status=$(sshpass -p "$OS_PASS" ssh -o LogLevel=QUIET -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$OS_USER@$os_ip" "systemctl is-system-running" 2>/dev/null)
-    if [[ "$boot_status" == "running" ]] || [[ "$boot_status" == "degraded" ]]; then
+    boot_status=$(sshpass -p "$OS_PASS" ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$OS_USER@$os_ip" "systemctl is-system-running" 2>/dev/null)
+    if [[ "$boot_status" =~ ^(running|degraded)$ ]]; then
         log "[Info] BMC $name ,OS Systemd Ready (Status: $boot_status)"
     else
-        echo "[Info] BMC $name ,System is still booting (Status: $boot_status)..."
+        echo "[Error] BMC $name ,System is still booting (Status: ${boot_status:-Unknown})..."
         return 1
     fi
 
@@ -205,10 +219,12 @@ run_server_test() {
     # 2. DOCA
     #ii  doca-host       3.2.0-125000-25.10-ubuntu2404     arm64        Software package
     local path="${server_dir}/doca.txt"
-    remote_exec "$os_ip" "dpkg -l | grep -i doca-host" > "$path"
+    local cmd="dpkg -l | grep -i doca-host"
+    remote_exec "$os_ip" "$cmd" > "$path"
     local doca_ver=""
     if [ -f "$path" ]; then
         doca_ver=$(awk '$1=="ii" {print $3}' "$path" | awk -F '-' '{print $1 "-" $2}')
+        echo "root@ubuntu-server:~# ${cmd}" | cat - "$path" > "$path.tmp" && mv "$path.tmp" "$path"
     fi
     echo "DOCA_HOST : $doca_ver" >> "$CHECK_RESULT"
 
@@ -216,12 +232,14 @@ run_server_test() {
     # 方式1 nvidia-smi 方式2 cat /proc/driver/nvidia/version
     # | NVIDIA-SMI 580.105.08             Driver Version: 580.105.08     CUDA Version: 13.0     |
     local path="${server_dir}/nvidia-smi.txt"
-    remote_exec "$os_ip" "nvidia-smi" > "$path"
+    local cmd="nvidia-smi"
+    remote_exec "$os_ip" "$cmd" > "$path"
     local gpu_ver=""
     local cuda_ver=""
     if [ -f "$path" ]; then
         gpu_ver=$(grep "NVIDIA-SMI" "$path" | awk -F '[:]' '{print $2}' | awk '{print $1}')
         cuda_ver=$(grep "NVIDIA-SMI" "$path" | awk -F '[:]' '{print $3}' | awk '{print $1}')
+        echo "root@ubuntu-server:~# ${cmd}" | cat - "$path" > "$path.tmp" && mv "$path.tmp" "$path"
     fi
     {
         echo "GPU Driver : $gpu_ver"
@@ -230,27 +248,26 @@ run_server_test() {
 
     # 4. IMEX version is: 580.105.08
     local path="${server_dir}/imex.txt"
-    remote_exec "$os_ip" "/usr/bin/nvidia-imex --version" > "$path"
+    local cmd="/usr/bin/nvidia-imex --version"
+    remote_exec "$os_ip" "$cmd" > "$path"
     local imex_ver=""
     if [ -f "$path" ]; then
         imex_ver=$(awk -F '[:]' '{print $2}' "$path")
+        echo "root@ubuntu-server:~# ${cmd}" | cat - "$path" > "$path.tmp" && mv "$path.tmp" "$path"
     fi
     echo "IMEX : $imex_ver" >> "$CHECK_RESULT"
 
     # 5. BF3_NIC FW
     local path="${server_dir}/nic_card.txt"
-    remote_exec "$os_ip" "mlxfwmanager --query" > "$path"
+    local cmd="mlxfwmanager --query"
+    remote_exec "$os_ip" "$cmd" > "$path"
     if [ -f "$path" ]; then
         #imex_ver=$(grep -iE "Device Type|FW" "$path" | awk '/Device Type:/ {dev=$3} /FW/ {print dev "-" ++i " : " $2}')
         #imex_ver=$(awk '/Device Type:/ {dev=$3} /FW/ {print dev " " $2}' "$path" | sort -k1,1 | awk '{print $1 "-" ++i " : " $2}')
         imex_ver=$(awk '/Device Type:/ {dev=$3} /FW/ {print dev " " $2}' "$path" | sort -k1,1 | awk '{count[$1]++; print $1 "-" count[$1] " : " $2}')
         echo "$imex_ver" >> "$CHECK_RESULT"
+        echo "root@ubuntu-server:~# ${cmd}" | cat - "$path" > "$path.tmp" && mv "$path.tmp" "$path"
     fi
-    
-    #Device Type:      BlueField3
-    #Versions:         Current        Available
-    #    FW             32.47.1026     N/A
-    # ---------------------------------------
     #Device Type:      ConnectX8
     #    FW             40.47.1026     N/A
     #Device Type:      BlueField3
@@ -313,7 +330,7 @@ parse_server_list
 echo ""
 
 # 設定Watchdog超時時間(秒)
-CYCLE_TIMEOUT=100
+CYCLE_TIMEOUT=90
 
 # 1. 觸發所有任務
 PID_LIST=""
@@ -333,7 +350,6 @@ done < "$EXECUTE_SERVER_LIST"
 
 # 2. 等待所有任務完成
 wait $PID_LIST
-
 
 # 3. Summary Report
 combine_result="${LOG_ROOT}_${TIME_STAMP}/combine_result.txt"
