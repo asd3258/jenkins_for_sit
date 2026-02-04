@@ -381,19 +381,15 @@ cat <<EOF > "$html_report"
 <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     h2 { color: #333; }
-    table { border-collapse: collapse; width: 100%; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
-    th, td { border: 1px solid #dddddd; text-align: left; padding: 12px; }
+    table { border-collapse: collapse; width: auto; min-width: 600px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+    th, td { border: 1px solid #dddddd; text-align: left; padding: 8px; }
     tr:nth-child(even) { background-color: #f3f3f3; }
-    tr:hover { background-color: #f1f1f1; }
+    tr:hover { background-color: #e0fcf0; }
     .error { color: red; font-weight: bold; }
-    /* 1. 外層容器：設定高度與捲動 */
-    .table-container {max-height: 85vh; overflow: auto; border: 1px solid #ccc;}
-    /* 2. 標題固定 (Top) */
-    th { position: sticky; top: 0; background-color: #009879; color: white; z-index: 2; }
-    /* 3. 第一欄固定 (Left) */
-    td:first-child, th:first-child { position: sticky; left: 0; z-index: 1; background-color: #f1f1f1}
-    /* 4. 左上角交集格 (最高優先權) */
-    th:first-child { z-index: 3; background-color: #009879;}
+    .table-container {max-height: 85vh; overflow: auto; border: 1px solid #ccc; max-width: 100%;}  /* 1. 外層容器：設定高度與捲動 */
+    th { position: sticky; top: 0; background-color: #009879; color: white; z-index: 2; }        /* 2. 標題固定 (Top) */
+    td:first-child, th:first-child { position: sticky; left: 0; z-index: 1; background-color: #f1f1f1}  /* 3. 第一欄固定 (Left) */
+    th:first-child { z-index: 3; background-color: #009879;}   /* 4. 左上角交集格 (最高優先權) */
 </style>
 </head>
 <body>
