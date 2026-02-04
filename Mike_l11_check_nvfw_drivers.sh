@@ -56,41 +56,6 @@ log() {
         echo "$msg" >> "$LOG_FILE"
     fi
 }
-
-# 遠端環境相依套件
-remote_check_dependencies() {
-    local ip=$1
-    # shellcheck disable=SC2016
-    local remote_cmd='
-        export LC_ALL=C  # 使用標準語系避免警告
-        export LANG=C
-        # 定義套件
-        check_list=("ipmitool:ipmitool" "jq:jq")
-        
-        missing_pkgs=""
-        
-        for item in "${check_list[@]}"; do
-            cmd=${item%%:*}   # 取得冒號前 (指令)
-            pkg=${item#*:}    # 取得冒號後 (套件)
-            
-            if ! command -v "$cmd" &> /dev/null; then
-                missing_pkgs="$missing_pkgs $pkg"
-            fi
-        done
-
-        if [ -n "$missing_pkgs" ]; then
-            echo "[Remote] 正在安裝缺失套件:$missing_pkgs"
-            sudo apt-get update -y -qq
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q $missing_pkgs
-        fi
-    '
-    if remote_exec "$ip" "$remote_cmd"; then
-        log "[Info] 遠端伺服器 [$ip] 相依套件檢查完成。"
-    else
-        log "[Error] 遠端伺服器 [$ip] 套件安裝失敗，請檢查 sudo 權限或網路。"
-        return 1
-    fi
-}
 # 整理SEVER LIST
 parse_server_list() {
     # 定義 IP 的正則表達式 (重複三次 [0-9]. 最後接一個 [0-9])
@@ -153,11 +118,20 @@ remote_exec() {
 # 抓取 Version
 get_version_with_redfish() {
     local ip=$1
-    local output_file=$2
+    local path=$2
     curl -u "$BMC_USER:$BMC_PASS" -k -s "https://$ip/redfish/v1/UpdateService/FirmwareInventory" | \
     jq -r '.Members[]."@odata.id"' | \
     xargs -I {} curl -u "$BMC_USER:$BMC_PASS" -k -s "https://$ip{}" | \
-    jq -r '"\(.Id) : \(.Version)"' > "$output_file"
+    jq -r '"\(.Id) : \(.Version)"' > "$path"
+    
+    local cmd
+    cmd="curl -u "$BMC_USER:$BMC_PASS" -k -s "https://$ip/redfish/v1/UpdateService/FirmwareInventory" |"
+    cmd="$cmd jq -r '.Members[]."@odata.id"' |"
+    cmd="$cmd xargs -I {} curl -u "$BMC_USER:$BMC_PASS" -k -s "https://$ip{}" |"
+    local jq_filter='"\(.Id) : \(.Version)"'
+    cmd="$cmd jq -r $jq_filter"
+
+    echo "root@ubuntu-server:~# ${cmd}" | cat - "$path" > "$path.tmp"
 }
 
 # 單台 Server 測試流程
@@ -208,13 +182,12 @@ run_server_test() {
         echo "[Error] BMC $bmc_ip ,System is still booting (Status: ${boot_status:-Unknown})..."
         return 1
     fi
-
-    # 遠端安裝測試工具
-    remote_check_dependencies "$os_ip"
-
+    
     # 1. Firmware Version
-    get_version_with_redfish "$bmc_ip" "${server_dir}/firmware_version.txt"
-    cat "${server_dir}/firmware_version.txt" > "$CHECK_RESULT"
+    local path="${server_dir}/firmware_version.txt"
+    get_version_with_redfish "$bmc_ip" "$path"
+    cat "$path" > "$CHECK_RESULT"
+    mv "$path.tmp" "$path"
 
     # 2. DOCA
     #ii  doca-host       3.2.0-125000-25.10-ubuntu2404     arm64        Software package
