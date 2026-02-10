@@ -379,17 +379,25 @@ cat <<EOF > "$html_report"
 <html>
 <head>
 <style>
+    :root {
+        --primary-color: #009879;
+        --row-even: #f3f3f3;
+        --row-even-sticky: #e8e8e8; /* 偶數列第一欄顏色 */
+        --row-hover: #e0fcf0;
+        --sticky-bg: #f1f1f1;       /* 奇數列第一欄顏色 */
+    }
+    .table-container {max-height: 85vh;overflow: auto;border: 1px solid #ccc;max-width: 100%;}
+    table {border-collapse: collapse;width: auto;min-width: 600px;box-shadow: 0 0 20px rgba(0,0,0,0.1);}
+    th, td {border: 1px solid #dddddd;text-align: left;padding: 8px;}
+    th {position: sticky;top: 0;background-color: var(--primary-color);color: white;z-index: 2;}       /* 標題固定 (Top) */
+    td:first-child {position: sticky; left: 0;z-index: 1;background-color: var(--sticky-bg);}            /* 第一欄固定 (Left) */
+    th:first-child {position: sticky;left: 0;top: 0;z-index: 3;background-color: var(--primary-color);}  /* 左上角交集格 */
+    tr:nth-child(even) {background-color: var(--row-even);}                        /* 偶數列背景 */
+    tr:nth-child(even) td:first-child {background-color: var(--row-even-sticky);}  /* 偶數列的第一欄背景覆蓋 */
+    tr:hover td {background-color: var(--row-hover) !important;}                   /* Hover 懸停效果 */
+    .error { color: red; font-weight: bold; }
     body { font-family: Arial, sans-serif; margin: 20px; }
     h2 { color: #333; }
-    table { border-collapse: collapse; width: auto; min-width: 600px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
-    th, td { border: 1px solid #dddddd; text-align: left; padding: 8px; }
-    tr:nth-child(even) { background-color: #f3f3f3; }
-    tr:hover { background-color: #e0fcf0; }
-    .error { color: red; font-weight: bold; }
-    .table-container {max-height: 85vh; overflow: auto; border: 1px solid #ccc; max-width: 100%;}  /* 1. 外層容器：設定高度與捲動 */
-    th { position: sticky; top: 0; background-color: #009879; color: white; z-index: 2; }        /* 2. 標題固定 (Top) */
-    td:first-child, th:first-child { position: sticky; left: 0; z-index: 1; background-color: #f1f1f1}  /* 3. 第一欄固定 (Left) */
-    th:first-child { z-index: 3; background-color: #009879;}   /* 4. 左上角交集格 (最高優先權) */
 </style>
 </head>
 <body>
