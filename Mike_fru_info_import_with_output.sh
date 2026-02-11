@@ -85,13 +85,22 @@ __main__() {
         sleep 2
 
         # 3. 寫入 bin 檔
-        ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus fru write "$id" "fru${id}.bin"
+        echo "正在寫入 FRU $id..."
+        if ! ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus fru write "$id" "fru${id}.bin"; then
+            echo "[Fail] ipmitool 執行異常 (ID $id)，可能是 Segmentation fault 或連線中斷" | tee -a "result.txt"
+            echo "----------------------------------------"
+            continue
+        fi
         
         # 寫入後等待 BMC 刷新緩存
         sleep 5 
 
         # 4. 記錄寫入後的狀態
-        ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus fru print "$id" > "fru${id}_after.log" 2>&1
+        if ! ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus fru print "$id" > "fru${id}_after.log" 2>&1; then
+            echo "[Fail] 寫入後讀取失敗 (ID $id)" | tee -a "result.txt"
+            echo "----------------------------------------"
+            continue
+        fi
 
         # 5. 比對差異
         if diff -q "fru${id}_before.log" "fru${id}_after.log" > /dev/null; then
