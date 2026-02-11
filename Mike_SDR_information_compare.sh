@@ -1,14 +1,13 @@
 #!/bin/bash
 
 # --- 設定區 ---
-BMC_IP=$1
-BMC_USER="admin"
-BMC_PASS="adminadmin"     # 要設定的新密碼
-SDR_SPEC_FILE="sdr_spec.csv"
+BMC_USER=""
+BMC_PASS=""     # 要設定的新密碼
+BMC_IP=""
 
+SDR_SPEC_FILE="sdr_spec.csv"
 SDR_REDFISH_LOG="sdr_redfish.log"
 SDR_IPMITOOL_LOG="sdr_ipmitool.log"
-
 : > "$SDR_REDFISH_LOG"
 : > "$SDR_IPMITOOL_LOG"
 
@@ -25,26 +24,39 @@ fi
 # 強制移除 Windows 換行符號 (\r)，避免讀取失敗
 sed -i 's/\r//g' "$SDR_SPEC_FILE"
 
-# 檢查相依套件
-check_dependencies() {
-    missing_pkgs=""
-    for cmd in ipmitool sshpass curl jq; do
-        if ! command -v "$cmd" &> /dev/null; then
-            missing_pkgs="$missing_pkgs $cmd"
-        fi
-    done
-    if [ -n "$missing_pkgs" ]; then
-        echo "偵測到缺失套件，準備安裝:$missing_pkgs"
-        sudo apt-get update -y -qq
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q $missing_pkgs > /dev/null
-        if [ $? -eq 0 ]; then
-            echo "所有套件安裝完成。"
-        else
-            echo "安裝過程中發生錯誤，請檢查網路或套件名稱。"
+# --- 參數解析迴圈 ---
+# $# 代表參數個數，只要還有參數就繼續跑
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --bmc_user=*)
+            BMC_USER="${1#*=}"
+            ;;
+            
+        --bmc_pass=*)
+            BMC_PASS="${1#*=}"
+            ;;
+            
+        --bmc_ip=*)
+            BMC_IP="${1#*=}"
+            ;;
+
+        # --- 幫助與錯誤處理 ---
+        --help|-h)
+            echo "Usage: $0 --bmc_user=USER  --bmc_pass=PASS --bmc_ip=w.x.y.z"
+            exit 0
+            ;;
+            
+        *)
+            echo "[Error] Unknown parameter: $1"
+            echo "Try '$0 --help' for more information."
             exit 1
-        fi
-    fi
-}
+            ;;
+    esac
+    
+    # 移除目前參數 ($1)，繼續處理下一個
+    shift 
+done
+
 # 檢查 Server 健康狀態
 check_server_health() {
     local ip=$1
