@@ -12,11 +12,6 @@ SDR_IPMITOOL_LOG="sdr_ipmitool.log"
 : > "$SDR_IPMITOOL_LOG"
 
 # 檢查參數
-if [ -z "$BMC_IP" ]; then
-    echo "用法: $0 <BMC_IP>"
-    exit 1
-fi
-
 if [ ! -f "$SDR_SPEC_FILE" ]; then
     echo "錯誤: 找不到 $SDR_SPEC_FILE，請先執行 Mike_parse_sdr_spec.py 產生該檔案。"
     exit 1
