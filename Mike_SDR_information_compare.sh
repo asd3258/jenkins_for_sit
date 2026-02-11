@@ -2,7 +2,7 @@
 
 # --- 設定區 ---
 BMC_USER=""
-BMC_PASS=""     # 要設定的新密碼
+BMC_PASS=""
 BMC_IP=""
 
 SDR_SPEC_FILE="sdr_spec.csv"
