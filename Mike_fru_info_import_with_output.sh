@@ -1,9 +1,42 @@
 #!/bin/bash
 
 # --- 設定區 ---
-BMC_USER="admin"
-BMC_PASS="adminadmin"
-BMC_IP="$1"
+BMC_USER=""
+BMC_PASS=""
+BMC_IP=""
+
+# --- 參數解析迴圈 ---
+# $# 代表參數個數，只要還有參數就繼續跑
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --bmc_user=*)
+            BMC_USER="${1#*=}"
+            ;;
+            
+        --bmc_pass=*)
+            BMC_PASS="${1#*=}"
+            ;;
+            
+        --bmc_ip=*)
+            BMC_IP="${1#*=}"
+            ;;
+
+        # --- 幫助與錯誤處理 ---
+        --help|-h)
+            echo "Usage: $0 --bmc_user=USER  --bmc_pass=PASS --bmc_ip=w.x.y.z"
+            exit 0
+            ;;
+            
+        *)
+            echo "[Error] Unknown parameter: $1"
+            echo "Try '$0 --help' for more information."
+            exit 1
+            ;;
+    esac
+    
+    # 移除目前參數 ($1)，繼續處理下一個
+    shift 
+done
 
 __main__() {
 
