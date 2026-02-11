@@ -153,7 +153,7 @@ while IFS=, read -r Sensor_Name Sensor_Number Project_Selected LNR LC LNC UNC UC
 
     redfish_sdr=$(curl -s -k -f -u "$BMC_USER:$BMC_PASS" "https://$BMC_IP$Redfish" 2>/dev/null)
     {
-        echo "curl -s -k -f -u "$BMC_USER:$BMC_PASS" https://$BMC_IP$Redfish 2>/dev/null"
+        echo "curl -s -k -f -u "$BMC_USER:$BMC_PASS" https://$BMC_IP$Redfish"
         echo "$redfish_sdr"
         echo ""
     } >> $SDR_REDFISH_LOG
