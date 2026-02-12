@@ -45,7 +45,7 @@ __main__() {
 
     echo "正在連接 $ip 獲取 FRU 列表..."
     # 獲取所有 FRU 資訊 (建議這裡也加上 2>&1 以便 Debug)
-    ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus fru print > fru_all.log 2>&1
+    ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus -C 17 fru print > fru_all.log 2>&1
     
     # 提取 ID (使用 grep -P 正則)
     fru_ids=$(grep -oP 'ID \K[0-9]+' fru_all.log)
@@ -63,7 +63,7 @@ __main__() {
         echo "正在處理 FRU ID: $id ..."
 
         # 1. 記錄寫入前的狀態 (包含 stderr)
-        ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus fru print "$id" > "fru${id}_before.log" 2>&1
+        ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus -C 17 fru print "$id" > "fru${id}_before.log" 2>&1
 
         # 檢查 Header 異常
         if grep -q "Unknown FRU header version 0x00" "fru${id}_before.log"; then
@@ -73,7 +73,7 @@ __main__() {
         fi
 
         # 2. 讀取 bin 檔
-        ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus fru read "$id" "fru${id}.bin"
+        ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus -C 17 fru read "$id" "fru${id}.bin"
 
         # 檢查檔案是否存在且不為空
         if [ ! -s "fru${id}.bin" ]; then
@@ -86,7 +86,7 @@ __main__() {
 
         # 3. 寫入 bin 檔
         echo "正在寫入 FRU $id..."
-        if ! ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus fru write "$id" "fru${id}.bin"; then
+        if ! ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus -C 17 fru write "$id" "fru${id}.bin"; then
             echo "[Fail] ipmitool 執行異常 (ID $id)，可能是 Segmentation fault 或連線中斷" | tee -a "result.txt"
             echo "----------------------------------------"
             continue
@@ -96,7 +96,7 @@ __main__() {
         sleep 5 
 
         # 4. 記錄寫入後的狀態
-        if ! ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus fru print "$id" > "fru${id}_after.log" 2>&1; then
+        if ! ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus -C 17 fru print "$id" > "fru${id}_after.log" 2>&1; then
             echo "[Fail] 寫入後讀取失敗 (ID $id)" | tee -a "result.txt"
             echo "----------------------------------------"
             continue
