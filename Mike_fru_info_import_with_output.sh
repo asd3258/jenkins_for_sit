@@ -39,7 +39,11 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 __main__() {
-
+    if ! command -v ipmi-fru &> /dev/null; then
+        echo "正在安裝 FreeIPMI..."
+        apt-get update && apt-get install -y freeipmi -qq
+    fi
+    
     local ip="$1"
     : > result.txt  # 清空或建立結果檔
 
@@ -87,9 +91,14 @@ __main__() {
         # 3. 寫入 bin 檔
         echo "正在寫入 FRU $id..."
         if ! ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus -C 17 fru write "$id" "fru${id}.bin"; then
-            echo "[Fail] ipmitool 執行異常 (ID $id)，可能是 Segmentation fault 或連線中斷" | tee -a "result.txt"
-            echo "----------------------------------------"
-            continue
+            echo "[Fail] ipmitool 執行異常 (ID $id)，嘗試使用 freeipmi..." | tee -a "result.txt"
+            if ! /usr/sbin/ipmi-fru --write --fru-file="fru${id}.bin" --id="$id" -h "$ip" -u "$BMC_USER" -p "$BMC_PASS" -D LAN_2_0; then
+                echo "[Fail] freeipmi 執行異常 (ID $id)，寫入完全失敗。" | tee -a "result.txt"
+                echo "----------------------------------------"
+                continue
+            else
+                echo "[Success] freeipmi 寫入成功 (ID $id)。"
+            fi
         fi
         
         # 寫入後等待 BMC 刷新緩存
