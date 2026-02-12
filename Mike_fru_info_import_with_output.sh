@@ -28,7 +28,7 @@ while [[ "$#" -gt 0 ]]; do
             ;;
             
         *)
-            echo "[Error] Unknown parameter: $1"
+            echo "[Fail] Unknown parameter: $1"
             echo "Try '$0 --help' for more information."
             exit 1
             ;;
@@ -53,7 +53,7 @@ __main__() {
     
     # 檢查是否獲取到 ID
     if [ -z "$fru_ids" ]; then
-        echo "[Error] 未找到任何 FRU ID，請檢查連線或密碼。"
+        echo "[Fail] 未找到任何 FRU ID，請檢查連線或密碼。"
         return 1
     fi
 	
@@ -74,14 +74,14 @@ __main__() {
 
         # 檢查 Header 異常
         if grep -q "Unknown FRU header version 0x00" "fru${id}_before.log"; then
-            echo "[Error] 發現異常: Unknown FRU header version 0x00 (ID $id)。跳過此裝置。" | tee -a "result.txt"
+            echo "[Fail] 發現異常: Unknown FRU header version 0x00 (ID $id)。跳過此裝置。" | tee -a "result.txt"
             echo "----------------------------------------"
             continue
         fi
 		
         # 檢查 Handshake 異常
         if grep -q "Error: Unable to establish" "fru${id}_before.log"; then
-            echo "[Error] 發現異常: Error: Unable to establish IPMI v2 / RMCP+ session (ID $id)。跳過此裝置。" | tee -a "result.txt"
+            echo "[Fail] 發現異常: Error: Unable to establish IPMI v2 / RMCP+ session (ID $id)。跳過此裝置。" | tee -a "result.txt"
             echo "----------------------------------------"
             continue
         fi
@@ -91,7 +91,7 @@ __main__() {
 
         # 檢查檔案是否存在且不為空
         if [ ! -s "fru${id}.bin" ]; then
-            echo "[Error] 讀取 FRU $id 失敗或文件為空，跳過寫入。"  | tee -a "result.txt"
+            echo "[Fail] 讀取 FRU $id 失敗或文件為空，跳過寫入。"  | tee -a "result.txt"
             echo "----------------------------------------"
             continue
         fi
@@ -114,7 +114,7 @@ __main__() {
             echo "[Fail] 寫入後fru print輸出失敗 (ID $id)" | tee -a "result.txt"
 	        # 檢查 Handshake 異常
 	        if grep -q "Error: Unable to establish" "fru${id}_after.log"; then
-	            echo "[Error] 發現異常: Error: Unable to establish IPMI v2 / RMCP+ session (ID $id)。" | tee -a "result.txt"
+	            echo "[Fail] 發現異常: Error: Unable to establish IPMI v2 / RMCP+ session (ID $id)。" | tee -a "result.txt"
 	        fi
             echo "----------------------------------------"
             continue
