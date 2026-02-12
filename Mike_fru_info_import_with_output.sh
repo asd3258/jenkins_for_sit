@@ -38,35 +38,6 @@ while [[ "$#" -gt 0 ]]; do
     shift 
 done
 
-install_new_ipmitool() {
-    if [ -f "/usr/local/bin/ipmitool" ]; then
-        # 簡單檢查版本 (如果已經是手動編譯的就不重做)
-        if /usr/local/bin/ipmitool -V | grep -q "version 1.8.19"; then
-            return 0
-        fi
-    fi
-
-    echo ">>> 檢測到 ipmitool 可能過舊，正在下載並編譯最新版 (約需 1 分鐘)..."
-    
-    # 1. 安裝編譯依賴 (安靜模式)
-    apt-get update -qq >/dev/null
-    apt-get install -y -qq git build-essential autoconf automake libtool libssl-dev >/dev/null
-
-    # 2. 下載與編譯
-    cd /tmp
-    rm -rf ipmitool_src
-    git clone --depth 1 https://github.com/ipmitool/ipmitool.git ipmitool_src >/dev/null 2>&1
-    cd ipmitool_src
-    
-    ./bootstrap >/dev/null 2>&1
-    ./configure --prefix=/usr/local >/dev/null 2>&1
-    make -j$(nproc) >/dev/null 2>&1
-    make install >/dev/null 2>&1
-    
-    echo ">>> ipmitool 更新完成！版本："
-    /usr/local/bin/ipmitool -V
-    cd - >/dev/null
-}
 
 __main__() {
     
@@ -74,7 +45,7 @@ __main__() {
     : > result.txt  # 清空或建立結果檔
 
     echo "正在連接 $ip 獲取 FRU 列表..."
-    # 獲取所有 FRU 資訊 (建議這裡也加上 2>&1 以便 Debug)
+    # 獲取所有 FRU 資訊
     ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus -C 17 fru print > fru_all.log 2>&1
     
     # 提取 ID (使用 grep -P 正則)
@@ -97,11 +68,18 @@ __main__() {
 
         # 檢查 Header 異常
         if grep -q "Unknown FRU header version 0x00" "fru${id}_before.log"; then
-            echo "[Skip] 發現異常: Unknown FRU header version 0x00 (ID $id)。跳過此裝置。" | tee -a "result.txt"
+            echo "[Error] 發現異常: Unknown FRU header version 0x00 (ID $id)。跳過此裝置。" | tee -a "result.txt"
             echo "----------------------------------------"
             continue
         fi
-
+		
+        # 檢查 Handshake 異常
+        if grep -q "Error: Unable to establish" "fru${id}_before.log"; then
+            echo "[Error] 發現異常: Error: Unable to establish IPMI v2 / RMCP+ session (ID $id)。跳過此裝置。" | tee -a "result.txt"
+            echo "----------------------------------------"
+            continue
+        fi
+		
         # 2. 讀取 bin 檔
         ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus -C 17 fru read "$id" "fru${id}.bin"
 
@@ -128,6 +106,10 @@ __main__() {
         # 4. 記錄寫入後的狀態
         if ! ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus -C 17 fru print "$id" > "fru${id}_after.log" 2>&1; then
             echo "[Fail] 寫入後讀取失敗 (ID $id)" | tee -a "result.txt"
+	        # 檢查 Handshake 異常
+	        if grep -q "Error: Unable to establish" "fru${id}_after.log"; then
+	            echo "[Error] 發現異常: Error: Unable to establish IPMI v2 / RMCP+ session (ID $id)。" | tee -a "result.txt"
+	        fi
             echo "----------------------------------------"
             continue
         fi
