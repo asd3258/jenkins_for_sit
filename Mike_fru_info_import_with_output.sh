@@ -60,7 +60,8 @@ __main__() {
 	# BMC MFG Mode
 	ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus -C 17 raw 0x06 0x05 0x73 0x75 0x70 0x65 0x72 0x75 0x73 0x65 0x72
 	# 解鎖OEM cmd, enable fru write 
-	ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus -C 17 raw 0x30 0x17 0x01
+	# ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus -C 17 raw 0x30 0x17 0x01
+	ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus -C 17 raw 0x30 0x17 1
 	
     echo "檢測到的 ID: $fru_ids"
     echo "----------------------------------------"
