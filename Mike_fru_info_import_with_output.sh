@@ -111,7 +111,7 @@ __main__() {
 
         # 4. 記錄寫入後的狀態
         if ! ipmitool -H "$ip" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus -C 17 fru print "$id" > "fru${id}_after.log" 2>&1; then
-            echo "[Fail] 寫入後讀取失敗 (ID $id)" | tee -a "result.txt"
+            echo "[Fail] 寫入後fru print輸出失敗 (ID $id)" | tee -a "result.txt"
 	        # 檢查 Handshake 異常
 	        if grep -q "Error: Unable to establish" "fru${id}_after.log"; then
 	            echo "[Error] 發現異常: Error: Unable to establish IPMI v2 / RMCP+ session (ID $id)。" | tee -a "result.txt"
