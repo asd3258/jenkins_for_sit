@@ -137,6 +137,12 @@ __main__() {
     check_error "$fru_text" "$id"
     if [ $? -ne 0 ]; then return 1; fi
 
+    # BMC MFG Mode
+    ipmitool -H "$BMC_IP" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus -C 17 raw 0x06 0x05 0x73 0x75 0x70 0x65 0x72 0x75 0x73 0x65 0x72
+    # 解鎖OEM cmd, enable fru write
+    # ipmitool -H "$BMC_IP" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus -C 17 raw 0x30 0x17 0x01
+    ipmitool -H "$BMC_IP" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus -C 17 raw 0x30 0x17 1
+    
     # 2. 讀取 bin 檔
     read_fru=$(ipmitool -H "$BMC_IP" -U "$BMC_USER" -P "$BMC_PASS" -I lanplus -C 17 fru read "$id" "fru${id}.bin" 2>&1)
     
