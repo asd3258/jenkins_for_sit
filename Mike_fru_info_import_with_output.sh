@@ -180,13 +180,14 @@ body {
 </style>
 </head>
 <body>
-<h2>FRU FRU Info Import</h2>
+<h2>FRU Info Import</h2>
 <p>BMC IP:$BMC_IP, Generated time: $(date '+%Y-%m-%d %H:%M:%S')</p>
-<table>
+<div class="log-box">
 EOF
 
 # 2. 處理內容並寫入
-sed -e 's/\[Pass\]/<span class="pass">[Pass]<\/span>/g' \
+sed -e 's/$/\r/' \
+    -e 's/\[Pass\]/<span class="pass">[Pass]<\/span>/g' \
     -e 's/\[Fail\]/<span class="fail">[Fail]<\/span>/g' \
     "$result_file" >> "$html_report"
 
