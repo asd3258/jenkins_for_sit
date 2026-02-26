@@ -991,7 +991,7 @@ mkdir -p "$server_dir"
 LOG_FILE="${server_dir}/run.log"
 VERIFY_FILE="${server_dir}/run_verify.log"
 SUMMARY_REPORT="${server_dir}/summary_report.txt"
-
+echo "$BMC_IP" "$OS_IP"
 TARGET_VER="2.10.05"
 BMC_VER=$(curl -u "$BMC_USER:$BMC_PASS" -k -s "https://$BMC_IP/redfish/v1/UpdateService/FirmwareInventory/BMC" | jq -r '.Version')
 
