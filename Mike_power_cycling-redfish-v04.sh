@@ -994,7 +994,7 @@ SUMMARY_REPORT="${server_dir}/summary_report.txt"
 echo "$BMC_IP" "$OS_IP"
 TARGET_VER="2.10.05"
 BMC_VER=$(curl -u "$BMC_USER:$BMC_PASS" -k -s "https://$BMC_IP/redfish/v1/UpdateService/FirmwareInventory/BMC" | jq -r '.Version')
-
+echo $BMC_VER
 # 2. 檢查是否成功抓取到版本 (避免網路不通時 BMC_VER 為空)
 if [ -z "$BMC_VER" ] || [ "$BMC_VER" == "null" ]; then
     echo "[Error] 無法透過 Redfish 取得 BMC 版本，請檢查 IP 或帳密。"
