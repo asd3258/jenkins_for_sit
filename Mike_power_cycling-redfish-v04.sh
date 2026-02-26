@@ -275,7 +275,7 @@ golden_file() {
         # 遠端安裝測試工具
         remote_check_dependencies "$os_ip"
 
-        verify_log "=========== Golden ==========="
+        # verify_log "=========== Golden ==========="
 
         local path="${server_dir}/00--dmidecode"
         mkdir -p "${path}"
@@ -374,7 +374,7 @@ golden_file() {
         else
             verify_log "Golden Result: FAIL"
         fi
-        verify_log "=============================="
+        # verify_log "=============================="
     fi
 }
 check_redfish_http() {
@@ -528,8 +528,8 @@ run_server_test() {
                 ipmitool -I lanplus -N 5 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" $action_cmd > /dev/null 2>&1
             elif [[ "${TEST_MODE,,}" == "graceful" ]]; then
                 curl_msg=$(curl -sS --http1.0 -k -X POST -u $BMC_USER:$BMC_PASS -H "Content-Type: application/json" https://$bmc_ip/redfish/v1/Systems/System_0/Actions/ComputerSystem.Reset -d '{"ResetType":"GracefulRestart"}' -w "\nHTTP_CODE:%{http_code}")
-                    local json_body=$(echo "$curl_msg" | sed '$d')
-                    echo "$json_body" | jq . | tee -a "$LOG_FILE"
+                #local json_body=$(echo "$curl_msg" | sed '$d')
+                #echo "$json_body" | jq . | tee -a "$LOG_FILE"
             elif [[ "${TEST_MODE,,}" == "force" ]]; then
                 curl_msg=$(curl -sS --http1.0 -k -X POST -u $BMC_USER:$BMC_PASS -H "Content-Type: application/json" https://$bmc_ip/redfish/v1/Systems/System_0/Actions/ComputerSystem.Reset -d '{"ResetType":"ForceOff"}' -w "\nHTTP_CODE:%{http_code}")
             elif [[ "${TEST_MODE,,}" == "cycle" ]]; then
@@ -859,7 +859,7 @@ run_server_test() {
     # 寫入報告 echo "============= $current_count ============="
     {
         cat "$VERIFY_FILE"
-        echo ""
+        # echo ""
     } >> "$SUMMARY_REPORT"
 
     # 清空
@@ -994,14 +994,6 @@ SUMMARY_REPORT="${server_dir}/summary_report.txt"
 
 TARGET_VER="2.10.05"
 BMC_VER=$(curl -u "$BMC_USER:$BMC_PASS" -k -s "https://$BMC_IP/redfish/v1/UpdateService/FirmwareInventory/BMC" | jq -r '.Version')
-echo $BMC_USER
-echo $BMC_PASS
-echo $BMC_DEFAULT_PASS
-echo $OS_USER
-echo $OS_PASS
-echo $BMC_IP
-echo $OS_IP
-echo $BMC_VER
 
 # 2. 檢查是否成功抓取到版本 (避免網路不通時 BMC_VER 為空)
 if [ -z "$BMC_VER" ] || [ "$BMC_VER" == "null" ]; then
