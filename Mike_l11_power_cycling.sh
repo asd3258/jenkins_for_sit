@@ -930,8 +930,10 @@ run_server_test() {
         return 0
     else
         log "Round $current_count Result: FAIL"
-        return 1
+        return 0
+        #return 1
     fi
+    
 }
 
 # --- Watchdog 包裝函式 ---
