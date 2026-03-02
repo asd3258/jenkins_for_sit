@@ -649,13 +649,11 @@ while [[ "$#" -gt 0 ]]; do
         --os_pass=*)
             OS_PASS="${1#*=}"
             ;;
-        --fw_a_path=*)
-            FW_A_PATH="${1#*=}"
-            FW_A="${FW_A_PATH##*/}"
+        --fw_a=*)
+            FW_A="${1#*=}"
             ;;
-        --fw_b_path=*)
-            FW_B_PATH="${1#*=}"
-            FW_A="${FW_B_PATH##*/}"
+        --fw_b=*)
+            FW_B="${1#*=}"
             ;;
         # 顯示幫助
         --help|-h)
@@ -680,16 +678,14 @@ if [[ -z "$FW_A_PATH" ]] || [[ -z "$FW_B_PATH" ]]; then
     exit 1
 fi
 
-echo "[INFO] Downloading FW_A..."
-if ! wget "$FW_A_PATH"; then
-  echo "[Error] Failed to download FW_A from: $FW_A_PATH" >&2
-  exit 1
+if [[ ! -f "$FW_A" ]]; then
+    echo "[Error] FW_A 檔案不存在於當前目錄: $FW_A" >&2
+    exit 1
 fi
 
-echo "[INFO] Downloading FW_B..."
-if ! wget "$FW_B_PATH"; then
-  echo "[Error] Failed to download FW_B from: $FW_B_PATH" >&2
-  exit 1
+if [[ ! -f "$FW_B" ]]; then
+    echo "[Error] FW_B 檔案不存在於當前目錄: $FW_B" >&2
+    exit 1
 fi
 
 if [[ -z "$BMC_IP" ]] || [[ -z "$OS_IP" ]]; then
