@@ -226,8 +226,11 @@ while true; do
   echo "[TASK][${SRC}] State=${STATE} Status=${STATUS} Progress=${PCT}%"
 
   if [[ "${SRC}" == "Tasks" && "${STATE}" == "Completed" && "${STATUS}" == "OK" && "${PCT}" == "100" ]]; then
-    echo "[INFO] FW Update completed. The system will reboot shortly to apply the firmware."
-    curl -sku "${BMC_USER}:${BMC_PASS}" -H 'Content-Type: application/json' -X POST https://${BMC_IP}/redfish/v1/Systems/System_0/Actions/ComputerSystem.Reset -d '{"ResetType":"PowerCycle"}'
+    # echo "[INFO] FW Update completed. The system will reboot shortly to apply the firmware."
+    # curl -sku "${BMC_USER}:${BMC_PASS}" -H 'Content-Type: application/json' -X POST https://${BMC_IP}/redfish/v1/Systems/System_0/Actions/ComputerSystem.Reset -d '{"ResetType":"PowerCycle"}'
+    log "[INFO] FW Update completed. The system will AC shortly to apply the firmware."
+    ipmitool -I lanplus -N 5 -R 3 -H "$BMC_IP" -U "$BMC_USER" -P "$BMC_PASS" raw 0x06 0x05 0x73 0x75 0x70 0x65 0x72 0x75 0x73 0x65 0x72 > /dev/null 2>&1
+    ipmitool -I lanplus -N 5 -R 3 -H "$BMC_IP" -U "$BMC_USER" -P "$BMC_PASS" raw 0x6 0x52 19 0x40 0 6 0x57 > /dev/null 2>&1
     echo ""
     echo "[INFO] Sleep 360s"
     sleep 360
