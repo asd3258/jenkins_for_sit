@@ -20,7 +20,7 @@ REPEAT_COUNT=100
 # =========================
 # DC + HOST VERIFY
 # =========================
-HOST_IP=""
+OS_IP=""
 OS_USER=""
 OS_PASS=""
 
@@ -136,11 +136,11 @@ dump_task_by_id() {
 }
 
 wait_host_ping() {
-  log "[INFO] Waiting HOST ping UP: $HOST_IP (timeout ${HOST_PING_TIMEOUT}s)"
+  log "[INFO] Waiting HOST ping UP: $OS_IP (timeout ${HOST_PING_TIMEOUT}s)"
   local start now
   start=$(date +%s)
   while true; do
-    if ping -c 1 -W 1 "$HOST_IP" >/dev/null 2>&1; then
+    if ping -c 1 -W 1 "$OS_IP" >/dev/null 2>&1; then
       log "[PASS] HOST ping is UP"
       return 0
     fi
@@ -200,7 +200,7 @@ dc_forceoff_on() {
 }
 
 wait_ssh_password_login() {
-  log "[INFO] Waiting SSH password login: ${OS_USER}@${HOST_IP} (timeout ${SSH_TIMEOUT}s)"
+  log "[INFO] Waiting SSH password login: ${OS_USER}@${OS_IP} (timeout ${SSH_TIMEOUT}s)"
   export SSHPASS="$OS_PASS"
 
   local start now
@@ -212,7 +212,7 @@ wait_ssh_password_login() {
       -o UserKnownHostsFile=/dev/null \
       -o LogLevel=ERROR \
       -o ConnectTimeout="$SSH_CONNECT_TIMEOUT" \
-      "$OS_USER@$HOST_IP" \
+      "$OS_USER@$OS_IP" \
       'echo LOGIN_OK' 2>/dev/null | grep -q LOGIN_OK; then
       log "[PASS] SSH password login confirmed"
       return 0
@@ -231,7 +231,7 @@ verify_os_proof() {
     -o UserKnownHostsFile=/dev/null \
     -o LogLevel=ERROR \
     -o ConnectTimeout="$SSH_CONNECT_TIMEOUT" \
-    "$OS_USER@$HOST_IP" \
+    "$OS_USER@$OS_IP" \
     'whoami; uname -s; uptime -p; systemctl is-system-running || true' \
     | sed 's/^/[OS] /'
   log "[PASS] OS proof collected"
@@ -244,7 +244,7 @@ get_os_bios_version_raw() {
     -o UserKnownHostsFile=/dev/null \
     -o LogLevel=ERROR \
     -o ConnectTimeout="$SSH_CONNECT_TIMEOUT" \
-    "$OS_USER@$HOST_IP" \
+    "$OS_USER@$OS_IP" \
     "dmidecode -t 0 | awk -F': ' '/Version:/ {print \$2; exit}'" \
     2>/dev/null || true
 }
@@ -571,7 +571,7 @@ main() {
 
     # Expect down after ForceOff
     if [[ "$result" == "PASS" ]]; then
-      if ! wait_host_ping_down "$HOST_IP" "$HOST_PING_DOWN_TIMEOUT"; then
+      if ! wait_host_ping_down "$OS_IP" "$HOST_PING_DOWN_TIMEOUT"; then
         s_down="FAIL"; result="FAIL"
         live_task_log "HOST DOWN timeout after DC"
       fi
@@ -651,11 +651,11 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         --fw_a_path=*)
             FW_A_PATH="${1#*=}"
-            FW_A="${FW_A_PATH##*\\}"
+            FW_A="${FW_A_PATH##*/}"
             ;;
         --fw_b_path=*)
             FW_B_PATH="${1#*=}"
-            FW_B="${FW_B_PATH##*\\}"
+            FW_A="${FW_B_PATH##*/}"
             ;;
         # 顯示幫助
         --help|-h)
@@ -676,13 +676,25 @@ done
 
 # --- 檢查必要參數 ---
 if [[ -z "$FW_A_PATH" ]] || [[ -z "$FW_B_PATH" ]]; then
-    echo "[Error] FW_A_PATH and FW_B_PATH are required."
+    echo "[Error] FW_A_PATH and FW_B_PATH are required." >&2
     exit 1
+fi
+
+echo "[INFO] Downloading FW_A..."
+if ! wget "$FW_A_PATH"; then
+  echo "[Error] Failed to download FW_A from: $FW_A_PATH" >&2
+  exit 1
+fi
+
+echo "[INFO] Downloading FW_B..."
+if ! wget "$FW_B_PATH"; then
+  echo "[Error] Failed to download FW_B from: $FW_B_PATH" >&2
+  exit 1
 fi
 
 if [[ -z "$BMC_IP" ]] || [[ -z "$OS_IP" ]]; then
-    echo "[Error] BMC_IP and OS_IP are required."
+    echo "[Error] BMC_IP and OS_IP (--os_ip) are required." >&2
     exit 1
 fi
 
-main "$@"
+main
