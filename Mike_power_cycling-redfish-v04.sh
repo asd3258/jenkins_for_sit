@@ -349,6 +349,7 @@ golden_file() {
         fi
 
         # 7. nvme list
+        echo "7. nvme list"
         path="${server_dir}/07--nvme_list"
         mkdir -p "${path}"
         remote_exec "$os_ip" "$NVME_LIST" > "${path}/golden_nvme_list.log"
@@ -356,17 +357,18 @@ golden_file() {
         #S666NE0RB01523 | SAMSUNG MZ1L21T9HCLS-00A07 | GDC7202Q | 1920383410176
 
         # 8. FRU
+        echo "8. FRU"
         path="${server_dir}/08--fru"
         mkdir -p "${path}"
         remote_exec "$os_ip" "ipmitool fru print 2>/dev/null" > "${path}/golden_fru.log"
 
         # 清除SEL & Dmesg
+        echo "9. sel"
         mkdir -p "${server_dir}/09--sel"
-        mkdir -p "${server_dir}/10--dmesg"
-
-        sleep 1
         ipmitool -I lanplus -N 5 -R 3 -H "$bmc_ip" -U "$BMC_USER" -P "$BMC_PASS" sel clear > /dev/null 2>&1
-        sleep 1
+        
+        echo "10. dmesg"
+        mkdir -p "${server_dir}/10--dmesg"
         remote_exec "$os_ip" "dmesg -C" > /dev/null
         sleep 1
         if [ $round_fail -eq 0 ]; then
