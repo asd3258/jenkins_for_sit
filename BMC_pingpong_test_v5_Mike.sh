@@ -111,7 +111,7 @@ wait_for_server_online() {
 # === Step 0: Load Configuration ===
 # === BMC Ping Pong Configuration === 
 # Target BMC IP Address 
-BMC_IP="192.168.129.81" 
+BMC_IP="" 
 BMC_USER="" 
 BMC_PASS="" 
 # Default password used after BMC reset (for password recovery) 
