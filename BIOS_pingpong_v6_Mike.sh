@@ -674,12 +674,12 @@ done
 
 # --- 檢查必要參數 ---
 if [[ ! -f "$FW_A" ]]; then
-    echo "[Error] FW_A 檔案不存在於當前目錄: $FW_A" >&2
+    echo "[Error] FW_A file does not exist in the current directory: $FW_A" >&2
     exit 1
 fi
 
 if [[ ! -f "$FW_B" ]]; then
-    echo "[Error] FW_B 檔案不存在於當前目錄: $FW_B" >&2
+    echo "[Error] FW_B file does not exist in the current directory: $FW_B" >&2
     exit 1
 fi
 
