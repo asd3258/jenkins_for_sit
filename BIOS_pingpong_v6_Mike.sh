@@ -474,8 +474,8 @@ poll_with_fallback_and_dump() {
 }
 
 main() {
-  
-  OUTDIR="result_pingpong_${START_TS}"
+  # OUTDIR="result_pingpong_${START_TS}"
+  OUTDIR="result_pingpong_${BMC_IP}_${START_TS}"
   mkdir -p "$OUTDIR"
 
   TASK_LIVE_LOG="${OUTDIR}/task_live.log"
