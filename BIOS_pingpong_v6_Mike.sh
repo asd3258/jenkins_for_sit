@@ -657,7 +657,7 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         # 顯示幫助
         --help|-h)
-            echo "Usage: $0 [--loop=N] --bmc_ip --bmc_user --bmc_pass --os_ip --os_user --os_pass --fw_a_path --fw_b_path "
+            echo "Usage: $0 --fw_a --fw_b [--loop=N] --bmc_ip --bmc_user --bmc_pass --os_ip --os_user --os_pass"
             echo "  --loop=i         : Repeat count (Default: 100)"
             exit 0
             ;;
@@ -673,11 +673,6 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # --- 檢查必要參數 ---
-if [[ -z "$FW_A_PATH" ]] || [[ -z "$FW_B_PATH" ]]; then
-    echo "[Error] FW_A_PATH and FW_B_PATH are required." >&2
-    exit 1
-fi
-
 if [[ ! -f "$FW_A" ]]; then
     echo "[Error] FW_A 檔案不存在於當前目錄: $FW_A" >&2
     exit 1
