@@ -323,7 +323,8 @@ golden_file() {
         path="${server_dir}/05--lscpu"
         mkdir -p "${path}"
         remote_exec "$os_ip" "lscpu" > "${path}/golden_lscpu.log"
-
+        sleep 2
+        
         echo "6. Sensor Readings"
         # 6. Sensor Readings
         path="${server_dir}/06--sdr"
