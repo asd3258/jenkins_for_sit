@@ -336,10 +336,28 @@ done < "$EXECUTE_SERVER_LIST"
 echo "$header" >> "$combine_result"
 
 # b. 以第一台 Server 為基準，取得所有要檢查的項目清單
-first_bmc=$(head -n 1 "$EXECUTE_SERVER_LIST" | cut -d',' -f2)
-main_file="${LOG_ROOT}_${TIME_STAMP}/${first_bmc}/check_result.txt"
+#first_bmc=$(head -n 1 "$EXECUTE_SERVER_LIST" | cut -d',' -f2)
+#main_file="${LOG_ROOT}_${TIME_STAMP}/${first_bmc}/check_result.txt"
 
-if [ -f "$main_file" ]; then
+# b. 尋找擁有最多檢查項目的 Server 檔案作為基準 (main_file)
+max_lines=0
+main_file=""
+while IFS=, read -r NAME BMC_IP OS_IP || [ -n "$NAME" ]; do
+    check_file="${LOG_ROOT}_${TIME_STAMP}/${BMC_IP}/check_result.txt"
+    if [ -f "$check_file" ]; then
+        # 計算該檔案的行數
+        current_lines=$(wc -l < "$check_file")
+        # 若行數大於目前的 max_lines，則更新 main_file 與最大行數
+        if [ "$current_lines" -gt "$max_lines" ]; then
+            max_lines=$current_lines
+            main_file=$check_file
+        fi
+    fi
+done < "$EXECUTE_SERVER_LIST"
+
+# c. 依據基準檔案開始抓取與比對資料
+if [ -n "$main_file" ] && [ -f "$main_file" ]; then
+    echo "[Info] 選擇基準檔案: $main_file (共 $max_lines 個項目)"
     # 逐行讀取檢查項目名稱
     while IFS=':' read -r DRIVER VERSION || [ -n "$DRIVER" ]; do
         # 去除項目名稱前後空白
@@ -353,7 +371,12 @@ if [ -f "$main_file" ]; then
             sub_file="${LOG_ROOT}_${TIME_STAMP}/${BMC_IP2}/check_result.txt"
             
             # 在該伺服器的結果檔中搜尋該項目，並只取出冒號後的版本號，使用 awk 取出第二欄並用 xargs 去除空白
-            val=$(grep "^${item_name} " "$sub_file" | awk -F ':' '{print $2}' | xargs)
+            if [ -f "$sub_file" ]; then
+                # 在該伺服器的結果檔中搜尋該項目，取出冒號後的版本號並去除空白
+                val=$(grep "^${item_name} " "$sub_file" | awk -F ':' '{print $2}' | xargs)
+            else
+                val=""
+            fi
             
             # 如果沒找到該項目，填入 N/A
             [ -z "$val" ] && val="N/A"
@@ -365,6 +388,8 @@ if [ -f "$main_file" ]; then
         echo "$row_data" >> "$combine_result"
         
     done < "$main_file"
+else
+    echo "[Warning] 找不到任何有效的 check_result.txt，無法產生總表資料。"
 fi
 
 echo "[Success] 總表已產生: $combine_result"
