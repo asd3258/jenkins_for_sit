@@ -367,7 +367,7 @@ while IFS=, read -r NAME BMC_IP OS_IP || [ -n "$NAME" ]; do
         ip_list="$ip_list $BMC_IP"
     fi
 done < "$EXECUTE_SERVER_LIST"
-
+echo $ip_list
 # -----------------------------------------------------------------
 # 處理 ip_list 去重複，並確保 max_ip 在最前面
 # -----------------------------------------------------------------
@@ -376,7 +376,7 @@ other_ips=$(echo "$ip_list" | tr ' ' '\n' | awk '!a[$0]++' | grep -v "^${max_ip}
 
 # 2. 將 max_ip 放在最前面，並將換行符號替換回空白組成最終清單
 final_ip_list="$max_ip $(echo "$other_ips" | tr '\n' ' ')"
-
+echo $final_ip_list
 # -----------------------------------------------------------------
 # a. 產生 Header (第一列：顯示各台 Server 的 BMC IP)
 # -----------------------------------------------------------------
