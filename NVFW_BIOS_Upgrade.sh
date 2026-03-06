@@ -112,7 +112,7 @@ poll_json() {
   return 0
 }
 
-SLEEP_SEC=30
+SLEEP_SEC=10
 MISS=0
 MISS_LIMIT=60   # ~10 min
 
@@ -148,8 +148,7 @@ while true; do
   echo "[TASK][${SRC}] State=${STATE} Status=${STATUS} Progress=${PCT}%"
 
   if [[ "${SRC}" == "Tasks" && "${STATE}" == "Completed" && "${STATUS}" == "OK" && "${PCT}" == "100" ]]; then
-    echo "[DONE] Update completed. The system will reboot shortly to apply the firmware."
-    curl -sku "${USER}:${PASS}" -H 'Content-Type: application/json' -X POST https://${BMC_IP}/redfish/v1/Systems/System_0/Actions/ComputerSystem.Reset -d '{"ResetType":"PowerCycle"}'
+    echo "[DONE] Update completed. Please do DC (power cycle) to activate the new firmware."
     break
   fi
 
@@ -162,3 +161,4 @@ while true; do
 
   sleep "${SLEEP_SEC}"
 done
+
