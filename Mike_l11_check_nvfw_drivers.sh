@@ -328,36 +328,73 @@ wait $PID_LIST
 combine_result="${LOG_ROOT}_${TIME_STAMP}/combine_result.txt"
 : > "$combine_result" # 初始化清空檔案
 
+# =======================  old =======================
 # a. 產生 Header (第一列：顯示各台 Server 的 BMC IP)
-header="COMPONENT"
-while IFS=, read -r NAME BMC_IP OS_IP || [ -n "$NAME" ]; do
-    header="$header | $BMC_IP"
-done < "$EXECUTE_SERVER_LIST"
-echo "$header" >> "$combine_result"
+#header="COMPONENT"
+#while IFS=, read -r NAME BMC_IP OS_IP || [ -n "$NAME" ]; do
+#    header="$header | $BMC_IP"
+#done < "$EXECUTE_SERVER_LIST"
+#echo "$header" >> "$combine_result"
 
 # b. 以第一台 Server 為基準，取得所有要檢查的項目清單
 #first_bmc=$(head -n 1 "$EXECUTE_SERVER_LIST" | cut -d',' -f2)
 #main_file="${LOG_ROOT}_${TIME_STAMP}/${first_bmc}/check_result.txt"
+# =======================  old =======================
 
-# b. 尋找擁有最多檢查項目的 Server 檔案作為基準 (main_file)
+# -----------------------------------------------------------------
+# b. 尋找擁有最多檢查項目的 Server 檔案作為基準 (main_file)，並收集所有 IP
+# -----------------------------------------------------------------
 max_lines=0
 main_file=""
+ip_list=""
+max_ip=""
 while IFS=, read -r NAME BMC_IP OS_IP || [ -n "$NAME" ]; do
+    # 略過空值
+    [ -z "$BMC_IP" ] && continue
+
     check_file="${LOG_ROOT}_${TIME_STAMP}/${BMC_IP}/check_result.txt"
     if [ -f "$check_file" ]; then
         # 計算該檔案的行數
         current_lines=$(wc -l < "$check_file")
+        
         # 若行數大於目前的 max_lines，則更新 main_file 與最大行數
         if [ "$current_lines" -gt "$max_lines" ]; then
             max_lines=$current_lines
             main_file=$check_file
+            max_ip=$BMC_IP
         fi
+        
+        ip_list="$ip_list $BMC_IP"
     fi
 done < "$EXECUTE_SERVER_LIST"
 
+# -----------------------------------------------------------------
+# 處理 ip_list 去重複，並確保 max_ip 在最前面
+# -----------------------------------------------------------------
+# 1. 將 ip_list 轉為多行，用 awk 去除重複 (保留原始順序)，再濾掉 max_ip 與空行
+other_ips=$(echo "$ip_list" | tr ' ' '\n' | awk '!a[$0]++' | grep -v "^${max_ip}$" | grep -v '^$')
+
+# 2. 將 max_ip 放在最前面，並將換行符號替換回空白組成最終清單
+final_ip_list="$max_ip $(echo "$other_ips" | tr '\n' ' ')"
+
+# -----------------------------------------------------------------
+# a. 產生 Header (第一列：顯示各台 Server 的 BMC IP)
+# -----------------------------------------------------------------
+# 依照排序好的 final_ip_list 來產生 Header，確保欄位對齊
+header="COMPONENT"
+for ip in $final_ip_list; do
+    header="$header | $ip"
+done
+
+# 初始化報表檔案 (覆蓋寫入表頭)
+echo "$header" > "$combine_result"
+
+# -----------------------------------------------------------------
 # c. 依據基準檔案開始抓取與比對資料
+# -----------------------------------------------------------------
 if [ -n "$main_file" ] && [ -f "$main_file" ]; then
     echo "[Info] 選擇基準檔案: $main_file (共 $max_lines 個項目)"
+    
     # 逐行讀取檢查項目名稱
     while IFS=':' read -r DRIVER VERSION || [ -n "$DRIVER" ]; do
         # 去除項目名稱前後空白
@@ -366,11 +403,9 @@ if [ -n "$main_file" ] && [ -f "$main_file" ]; then
         
         row_data="$item_name"
         
-        # 遍歷所有 Server，取出該項目對應的版本號
-        while IFS=, read -r NAME2 BMC_IP2 OS_IP2 || [ -n "$NAME2" ]; do
-            sub_file="${LOG_ROOT}_${TIME_STAMP}/${BMC_IP2}/check_result.txt"
-            
-            # 在該伺服器的結果檔中搜尋該項目，並只取出冒號後的版本號，使用 awk 取出第二欄並用 xargs 去除空白
+        # 遍歷 final_ip_list
+        for ip in $final_ip_list; do
+            sub_file="${LOG_ROOT}_${TIME_STAMP}/${ip}/check_result.txt"
             if [ -f "$sub_file" ]; then
                 # 在該伺服器的結果檔中搜尋該項目，取出冒號後的版本號並去除空白
                 val=$(grep "^${item_name} " "$sub_file" | awk -F ':' '{print $2}' | xargs)
@@ -382,7 +417,7 @@ if [ -n "$main_file" ] && [ -f "$main_file" ]; then
             [ -z "$val" ] && val="N/A"
             
             row_data="$row_data | $val"
-        done < "$EXECUTE_SERVER_LIST"
+        done
         
         # 寫入報表
         echo "$row_data" >> "$combine_result"
@@ -393,7 +428,6 @@ else
 fi
 
 echo "[Success] 總表已產生: $combine_result"
-
 
 # 4. 產生 HTML 報告 (Convert to HTML)
 html_report="${LOG_ROOT}_${TIME_STAMP}/summary_report.html"
