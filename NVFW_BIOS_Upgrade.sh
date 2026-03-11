@@ -29,7 +29,7 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # --- 檢查必要參數 ---
-if [[ -z "$BMC_IP" ]] ]]; then
+if [[ -z "$BMC_IP" ]]; then
     echo "[ERROR] BMC_IP (--bmc_ip) is required." >&2
     exit 1
 fi
