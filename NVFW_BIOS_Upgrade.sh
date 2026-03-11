@@ -3,8 +3,8 @@ set -euo pipefail
 
 # --- 宣告變數 ---
 BMC_IP=""
-BMC_USER=""
-BMC_PASS=""
+USER=""
+PASS=""
 FW_FILE=""
 
 # --- 參數解析迴圈 ---
@@ -12,11 +12,11 @@ FW_FILE=""
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --bmc_ip=*) BMC_IP="${1#*=}" ;;
-        --bmc_user=*) BMC_USER="${1#*=}" ;;
-        --bmc_pass=*) BMC_PASS="${1#*=}" ;;
+        --USER=*) USER="${1#*=}" ;;
+        --PASS=*) PASS="${1#*=}" ;;
         --fw_file=*) FW_FILE="${1#*=}" ;;
         --help|-h)
-            echo "Usage: $0 --fw_file --bmc_ip --bmc_user --bmc_pass"
+            echo "Usage: $0 --fw_file --bmc_ip --USER --PASS"
             exit 0
             ;;
         *)
