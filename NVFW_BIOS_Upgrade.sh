@@ -3,8 +3,8 @@ set -euo pipefail
 
 # --- 宣告變數 ---
 BMC_IP=""
-USER=""
-PASS=""
+BMC_USER=""
+BMC_PASS=""
 FW_FILE=""
 
 # --- 參數解析迴圈 ---
@@ -12,11 +12,11 @@ FW_FILE=""
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --bmc_ip=*) BMC_IP="${1#*=}" ;;
-        --USER=*) USER="${1#*=}" ;;
-        --PASS=*) PASS="${1#*=}" ;;
+        --bmc_user=*) BMC_USER="${1#*=}" ;;
+        --bmc_pass=*) BMC_PASS="${1#*=}" ;;
         --fw_file=*) FW_FILE="${1#*=}" ;;
         --help|-h)
-            echo "Usage: $0 --fw_file --bmc_ip --USER --PASS"
+            echo "Usage: $0 --fw_file --bmc_ip --bmc_user --bmc_pass"
             exit 0
             ;;
         *)
@@ -58,7 +58,7 @@ fi
 
 echo "[INFO] Get ETag from UpdateService..."
 ETAG=$(
-  curl -k -s -D - -o /dev/null -u "${USER}:${PASS}" "${UPDATE_SVC}" \
+  curl -k -s -D - -o /dev/null -u "${BMC_USER}:${BMC_PASS}" "${UPDATE_SVC}" \
   | awk 'BEGIN{IGNORECASE=1} $1=="ETag:"{print $2}' \
   | tr -d '\r"'
 )
@@ -70,14 +70,14 @@ fi
 echo "[INFO] ETag=${ETAG}"
 
 echo "[INFO] PATCH ForceUpdate=true ..."
-curl --http1.0 -k -s -X PATCH -u "${USER}:${PASS}" "${UPDATE_SVC}" \
+curl --http1.0 -k -s -X PATCH -u "${BMC_USER}:${BMC_PASS}" "${UPDATE_SVC}" \
   -H 'Content-Type: application/json' \
   -H "If-Match: \"${ETAG}\"" \
   -d '{"HttpPushUriOptions":{"ForceUpdate":true}}' > /dev/null
 
 echo "[INFO] Uploading firmware: ${FW_FILE}"
 RESP=$(
-  curl --http1.0 -k -s -u "${USER}:${PASS}" -X POST "${UPLOAD_URI}" \
+  curl --http1.0 -k -s -u "${BMC_USER}:${BMC_PASS}" -X POST "${UPLOAD_URI}" \
     -F 'UpdateParameters={"Targets":[]};type=application/json' \
     -F 'OemParameters={"ImageType":"PLDM","Platform":"HGX"};type=application/json' \
     -F "UpdateFile=@${FW_FILE}"
@@ -99,7 +99,7 @@ poll_json() {
   local url="$1"
   local out http body
 
-  out=$(curl -k -s -u "${USER}:${PASS}" -w $'\n%{http_code}' "https://${BMC_IP}${url}" || true)
+  out=$(curl -k -s -u "${BMC_USER}:${BMC_PASS}" -w $'\n%{http_code}' "https://${BMC_IP}${url}" || true)
   http=$(echo "$out" | tail -n1)
   body=$(echo "$out" | sed '$d')
 
